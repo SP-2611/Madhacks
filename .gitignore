@@ -1,0 +1,12 @@
+.DS_Store
+.vscode/
+.idea/
+*.swp
+node_modules/
+dist/
+build/
+__pycache__/
+.env
+.env.*
+*.pem
+*.key
