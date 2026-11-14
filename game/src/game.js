@@ -2,16 +2,40 @@
 // Phaser 3, no build step. Open index.html in a browser.
 
 const W = 960, H = 640;
-const FONT = '"Courier New", Courier, monospace';
+const FONT = 'Verdana, "Segoe UI", Tahoma, sans-serif';
 const UW_RED = 0xc5050c;
 
 // ---------- shared night state ----------
+const CHAR_D = 2000; // characters always draw above furniture
+const STEPS = [
+  { id: 'tail', label: 'Show off your tail' },
+  { id: 'kitchen', label: 'Dig in: beer or punch' },
+  { id: 'pong', label: 'Beer pong · 10:30 PM' },
+  { id: 'bathroom', label: 'Check on the bathroom' },
+  { id: 'balcony', label: 'Get some air' },
+  { id: 'shots', label: 'Shots · 12:00 AM' },
+  { id: 'jake', label: 'Find Jake' },
+  { id: 'end', label: '1:30 AM' }
+];
+const LESSONS = [
+  { id: 'no', t: 'Saying no is normal. You don\'t owe anyone a reason.' },
+  { id: 'pressure', t: 'Pressure can look like a compliment.' },
+  { id: 'mixed', t: 'Mixed drinks hide how strong they are.' },
+  { id: 'food', t: 'Food slows how fast alcohol hits you.' },
+  { id: 'water', t: 'Water helps you pace. It doesn\'t sober you up.' },
+  { id: 'check', t: 'Check on people. It matters.' },
+  { id: 'time', t: 'Only time sobers you up.' },
+  { id: 'shots', t: 'Shots hit way faster than beer.' },
+  { id: 'signs', t: 'Alcohol poisoning: can\'t wake up, slow breathing, vomiting, cold/clammy skin.' },
+  { id: 'call', t: 'Roll them on their side, call 911, stay with them.' }
+];
+const LEARNED = new Set(); // knowledge carries over when you dig back
 const S = {};
 function resetState(rewind) {
   Object.assign(S, {
     rewind, depth: 0, peak: 0, drinks: 0, water: 0, chips: 0, chipsBuffer: 0,
     minutes: 0, refused: 0, checkedBathroom: false, talkedMaya: false,
-    holdingWater: false, jakeDrunk: 0, flags: {}
+    holdingWater: false, jakeDrunk: 0, flags: {}, current: null, done: []
   });
 }
 resetState(false);
@@ -23,12 +47,14 @@ function timeStr(m) {
   return `${h24 % 12 || 12}:${mm.toString().padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`;
 }
 
+// drunk text: swap one pair of letters in some longer words, so it looks off but stays readable
 function scramble(s) {
   return s.split(' ').map(w => {
-    if (w.length < 4) return w;
-    const mid = w.slice(1, -1).split('');
-    Phaser.Utils.Array.Shuffle(mid);
-    return w[0] + mid.join('') + w[w.length - 1];
+    if (w.length < 5 || Math.random() < 0.5) return w;
+    const a = w.split('');
+    const i = 1 + Math.floor(Math.random() * (a.length - 3));
+    [a[i], a[i + 1]] = [a[i + 1], a[i]];
+    return a.join('');
   }).join(' ');
 }
 
@@ -86,6 +112,30 @@ function makeChair(scene, key, color) {
   g.lineBetween(12, 49, 9, 62); g.lineBetween(48, 49, 51, 62);
   g.generateTexture(key, 60, 64);
   g.destroy();
+}
+
+// Wisconsin State Capitol, drawn in code. (cx, gy) = center of the base on the ground.
+function drawCapitol(g, cx, gy, sc, body, shade, lit) {
+  const R = (x, y, w, h, c) => { g.fillStyle(c, 1); g.fillRect(cx + x * sc, gy + y * sc, w * sc, h * sc); };
+  // dome first, so the drum + colonnade cover its lower half
+  g.fillStyle(body, 1); g.fillEllipse(cx, gy - 160 * sc, 92 * sc, 130 * sc);
+  g.fillStyle(shade, 1); g.fillEllipse(cx + 14 * sc, gy - 160 * sc, 50 * sc, 124 * sc);
+  g.lineStyle(Math.max(1, 1.5 * sc), shade, 0.8);
+  [-30, -15, 0, 15, 30].forEach(dx => g.lineBetween(cx + dx * sc, gy - 222 * sc, cx + dx * 1.45 * sc, gy - 160 * sc));
+  R(-8, -240, 16, 20, body); R(-8, -240, 5, 20, shade);       // lantern
+  R(-2, -256, 4, 16, 0xd4af37); g.fillStyle(0xd4af37, 1); g.fillCircle(cx, gy - 258 * sc, 3.5 * sc); // gold statue
+  R(-50, -162, 100, 10, body);                                  // ring under dome
+  R(-46, -152, 92, 36, shade);                                  // drum
+  for (let i = 0; i < 10; i++) R(-44 + i * 9.6, -152, 5, 36, body); // columns
+  R(-56, -118, 112, 8, body);
+  R(-150, -50, 300, 50, body);                                  // wings
+  R(-150, -50, 300, 6, shade);
+  R(-66, -82, 132, 82, body);                                   // center block
+  R(-72, -90, 144, 10, shade);
+  g.fillStyle(body, 1); g.fillTriangle(cx - 60 * sc, gy - 90 * sc, cx, gy - 112 * sc, cx + 60 * sc, gy - 90 * sc); // pediment
+  for (let i = 0; i < 6; i++) R(-58 + i * 22, -78, 8, 70, shade); // portico columns
+  for (let i = 0; i < 12; i++) { if (Math.abs(-140 + i * 24) > 70) R(-140 + i * 24, -38, 9, 14, lit); }
+  R(-150, -6, 300, 6, shade);                                   // steps
 }
 
 // ======================================================================
@@ -159,7 +209,7 @@ class UI extends Phaser.Scene {
     // HUD
     this.hud = this.add.container(0, 0).setVisible(false);
     const clockBg = this.add.rectangle(16, 16, 170, 40, 0x000000, 0.6).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.6);
-    this.clock = this.add.text(30, 26, '9:00 PM', { fontFamily: FONT, fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setResolution(2);
+    this.clock = this.add.text(28, 25, '9:00 PM', { fontFamily: FONT, fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setResolution(2);
     // depth meter
     const mx = W - 54, my = 90, mh = 300;
     const meterBg = this.add.rectangle(mx, my, 34, mh, 0x2a1a0e).setOrigin(0.5, 0).setStrokeStyle(3, 0xffffff, 0.8);
@@ -168,30 +218,30 @@ class UI extends Phaser.Scene {
     cols.forEach((c, i) => { layers.fillStyle(c, 1); layers.fillRect(mx - 15, my + i * (mh / 5), 30, mh / 5); });
     this.meterFill = this.add.rectangle(mx, my, 30, 0, 0x000000, 0.75).setOrigin(0.5, 0);
     this.meterIcon = this.add.sprite(mx, my, 'badger', 0).setScale(0.6);
-    const lbl = this.add.text(mx, my - 26, 'DEPTH', { fontFamily: FONT, fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(2);
+    const lbl = this.add.text(mx, my - 26, 'DEPTH', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(2);
     const surf = this.add.text(mx - 26, my - 2, 'surface', { fontFamily: FONT, fontSize: '10px', color: '#cccccc' }).setOrigin(1, 0.5).setResolution(2);
     const bottom = this.add.text(mx - 26, my + mh, 'blackout', { fontFamily: FONT, fontSize: '10px', color: '#ff6b6b' }).setOrigin(1, 0.5).setResolution(2);
     this.meter = { x: mx, y: my, h: mh };
-    this.status = this.add.text(16, 64, '', { fontFamily: FONT, fontSize: '13px', color: '#dddddd', lineSpacing: 4 }).setResolution(2);
-    this.hint = this.add.text(W / 2, H - 14, 'WASD/Arrows: move   E: interact   SPACE: tail shake', { fontFamily: FONT, fontSize: '12px', color: '#bbbbbb' }).setOrigin(0.5, 1).setResolution(2);
+    this.status = this.add.text(16, 140, '', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 4, lineSpacing: 4 }).setResolution(2);
+    this.hint = this.add.text(W / 2, H - 14, 'WASD/Arrows: move   E: interact   SPACE: tail shake   P: phone', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5, 1).setResolution(2);
     this.hud.add([clockBg, this.clock, meterBg, layers, this.meterFill, this.meterIcon, lbl, surf, bottom, this.status, this.hint]);
 
-    this.toastText = this.add.text(W / 2, 120, '', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 10, y: 6 }, align: 'center', wordWrap: { width: 640 } }).setOrigin(0.5).setAlpha(0).setResolution(2);
+    this.toastText = this.add.text(W / 2, 130, '', { fontFamily: FONT, fontSize: '19px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 10, y: 6 }, align: 'center', wordWrap: { width: 640 } }).setOrigin(0.5).setAlpha(0).setResolution(2);
     this.bannerText = this.add.text(W / 2, H / 2 - 60, '', { fontFamily: FONT, fontSize: '44px', color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5).setAlpha(0).setResolution(2);
 
     // dialog: dim the world behind it (demo-3 style)
     this.dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 1).setAlpha(0);
     this.box = this.add.container(0, 0).setVisible(false);
-    const bg = this.add.rectangle(W / 2, H - 104, W - 40, 192, 0x0d0d16, 0.94).setStrokeStyle(3, 0xffffff, 0.9).setInteractive();
+    const bg = this.add.rectangle(W / 2, H - 127, W - 40, 230, 0x0d0d16, 0.96).setStrokeStyle(3, 0xffffff, 0.9).setInteractive();
     bg.on('pointerdown', () => this.advance());
-    this.who = this.add.text(44, H - 190, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#ffffff' }).setResolution(2);
-    this.body = this.add.text(44, H - 164, '', { fontFamily: FONT, fontSize: '18px', color: '#ffffff', wordWrap: { width: W - 110 }, lineSpacing: 4 }).setResolution(2);
-    this.more = this.add.text(W - 44, H - 22, '▼ E', { fontFamily: FONT, fontSize: '13px', color: '#aaaaaa' }).setOrigin(1, 1).setResolution(2);
-    this.timerBar = this.add.rectangle(30, H - 202, W - 60, 6, 0xffd166).setOrigin(0, 0.5);
+    this.who = this.add.text(44, H - 232, '', { fontFamily: FONT, fontSize: '21px', fontStyle: 'bold', color: '#ffffff' }).setResolution(2);
+    this.body = this.add.text(44, H - 202, '', { fontFamily: FONT, fontSize: '21px', color: '#ffffff', wordWrap: { width: W - 100 }, lineSpacing: 5 }).setResolution(2);
+    this.more = this.add.text(W - 44, H - 22, '▼ E', { fontFamily: FONT, fontSize: '15px', color: '#bbbbbb' }).setOrigin(1, 1).setResolution(2);
+    this.timerBar = this.add.rectangle(30, H - 250, W - 60, 8, 0xffd166).setOrigin(0, 0.5);
     this.box.add([bg, this.who, this.body, this.more, this.timerBar]);
     this.choiceTexts = [];
     for (let i = 0; i < 4; i++) {
-      const t = this.add.text(64, 0, '', { fontFamily: FONT, fontSize: '17px', color: '#ffd166' }).setResolution(2).setInteractive({ useHandCursor: true });
+      const t = this.add.text(60, 0, '', { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: '#ffd166' }).setResolution(2).setInteractive({ useHandCursor: true });
       t.on('pointerover', () => t.setColor('#ffffff'));
       t.on('pointerout', () => t.setColor('#ffd166'));
       t.on('pointerdown', () => this.pick(i));
@@ -199,22 +249,86 @@ class UI extends Phaser.Scene {
       this.box.add(t);
     }
 
+    this.buildPhone();
     this.input.keyboard.on('keydown', e => this.onKey(e));
   }
 
+  // ----- phone (plain version of the demo-3 phone) -----
+  buildPhone() {
+    const PW = 300, PH = 540;
+    this.phoneOpen = false;
+    this.phoneTab = 0;
+    this.phoneDim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 1).setAlpha(0);
+    this.phone = this.add.container(W - PW - 60, H + 20);
+    const g = this.add.graphics();
+    g.fillStyle(0xf5f5f5, 1); g.fillRoundedRect(0, 0, PW, PH, 30);
+    g.fillStyle(0x0a0a0d, 1); g.fillRoundedRect(6, 6, PW - 12, PH - 12, 25);
+    g.fillStyle(0xf5f5f5, 1); g.fillRoundedRect(PW / 2 - 35, 18, 70, 8, 4);
+    g.fillStyle(0x16161b, 1); g.fillRect(20, 40, PW - 40, PH - 90);
+    this.phone.add(g);
+    this.phoneClock = this.add.text(30, 48, '', { fontFamily: FONT, fontSize: '13px', color: '#ffffff' }).setResolution(2);
+    this.phoneTabs = ['Tonight', 'Learned'].map((t, i) => this.add.text(34 + i * 120, 74, t, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#ffffff' }).setResolution(2));
+    this.phoneLine = this.add.rectangle(34, 98, 90, 3, UW_RED).setOrigin(0, 0.5);
+    this.phoneBody = this.add.text(30, 112, '', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', lineSpacing: 7, wordWrap: { width: PW - 64 } }).setResolution(2);
+    this.phoneHint = this.add.text(PW / 2, PH - 34, '← → tabs · P / Esc close', { fontFamily: FONT, fontSize: '11px', color: '#888888' }).setOrigin(0.5).setResolution(2);
+    this.phone.add([this.phoneClock, ...this.phoneTabs, this.phoneLine, this.phoneBody, this.phoneHint]);
+    // small phone button on the HUD
+    this.phoneBtn = this.add.text(16, 66, '📱 P: phone', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 8, y: 5 } }).setResolution(2);
+    this.phoneBadge = this.add.circle(140, 68, 7, UW_RED).setVisible(false);
+    this.hud.add([this.phoneBtn, this.phoneBadge]);
+    this.phonePH = PH;
+  }
+  drawPhone() {
+    this.phoneClock.setText(timeStr(S.minutes) + '        ▮▮▮ 82%');
+    this.phoneTabs.forEach((t, i) => t.setColor(i === this.phoneTab ? '#ffffff' : '#777777'));
+    this.phoneLine.x = 34 + this.phoneTab * 120;
+    let out = '';
+    if (this.phoneTab === 0) {
+      out = 'Help Bucky get through the night.\n\n';
+      let reachedCurrent = false;
+      STEPS.forEach(st => {
+        if (S.done.includes(st.id)) out += '✓ ' + st.label + '\n';
+        else if (st.id === S.current) { out += '▶ ' + st.label + '\n'; reachedCurrent = true; }
+        else out += (reachedCurrent || !S.current ? '○ ' : '○ ') + st.label + '\n';
+      });
+      if (S.rewind) out += '\n⛏ Digging back. Find your tail.';
+    } else {
+      out = `What you're learning (${LEARNED.size}/${LESSONS.length})\n\n`;
+      LESSONS.forEach(l => { out += LEARNED.has(l.id) ? '★ ' + l.t + '\n' : '🔒 ???\n'; });
+    }
+    this.phoneBody.setText(out);
+  }
+  togglePhone(v) {
+    if (v === undefined) v = !this.phoneOpen;
+    if (v && (this.open || !this.hud.visible)) return;
+    this.phoneOpen = v;
+    if (v) { this.phoneBadge.setVisible(false); this.drawPhone(); }
+    this.tweens.killTweensOf([this.phone, this.phoneDim]);
+    this.tweens.add({ targets: this.phone, y: v ? (H - this.phonePH) / 2 : H + 20, duration: 220, ease: 'Cubic.easeOut' });
+    this.tweens.add({ targets: this.phoneDim, alpha: v ? 0.5 : 0, duration: 220 });
+    if (!v) this.closedAt = this.time.now;
+  }
+  learn(id) {
+    if (LEARNED.has(id)) return;
+    LEARNED.add(id);
+    const l = LESSONS.find(x => x.id === id);
+    this.phoneBadge.setVisible(true);
+    this.toast('📱 New on your phone: ' + l.t, 3200);
+  }
+
   // ----- HUD -----
-  showHUD(v) { this.hud.setVisible(v); if (!v) this.objective(''); }
+  showHUD(v) { this.hud.setVisible(v); if (!v) { this.objective(''); if (this.phoneOpen) this.togglePhone(false); } }
   objective(t) {
-    if (!this.objText) this.objText = this.add.text(W / 2, 18, '', { fontFamily: FONT, fontSize: '15px', color: '#ffd166', fontStyle: 'bold', backgroundColor: '#000000bb', padding: { x: 12, y: 7 } }).setOrigin(0.5, 0).setResolution(2);
+    if (!this.objText) this.objText = this.add.text(W / 2, 18, '', { fontFamily: FONT, fontSize: '18px', color: '#ffd166', fontStyle: 'bold', backgroundColor: '#000000cc', padding: { x: 14, y: 8 } }).setOrigin(0.5, 0).setResolution(2);
     this.objText.setText(t ? '▶ ' + t : '').setVisible(!!t);
   }
-  setTop(v) { this.box.y = v ? -(H - 216) : 0; }
+  setTop(v) { this.box.y = v ? -(H - 262) : 0; }
   refresh() {
     this.clock.setText('🕘 ' + timeStr(S.minutes));
     const f = Phaser.Math.Clamp(S.depth / 10, 0, 1);
     this.meterFill.height = 0;
     this.tweens.add({ targets: this.meterIcon, y: this.meter.y + f * this.meter.h, duration: 500, ease: 'Sine.easeOut' });
-    this.vignette.setAlpha(Math.max(0, (S.depth - 2) * 0.09));
+    this.vignette.setAlpha(Math.max(0, (S.depth - 2) * 0.06));
     const st = [];
     st.push(`Drinks: ${S.drinks}`);
     if (S.chipsBuffer > 0) st.push('🥔 food in stomach');
@@ -299,8 +413,8 @@ class UI extends Phaser.Scene {
     this.onTimeout = o.onTimeout;
     this.typeText(o.text, () => {
       choices.forEach((c, i) => {
-        let label = S.depth >= 7 ? scramble(c.label) : c.label;
-        this.choiceTexts[i].setText(`${i + 1}. ${label}`).setVisible(true).setY(H - 128 + i * 26);
+        let label = S.depth >= 8 ? scramble(c.label) : c.label;
+        this.choiceTexts[i].setText(`${i + 1}. ${label}`).setVisible(true).setY(H - 146 + i * 31);
       });
       if (lost) this.toast("You can't find the words to say no.");
       if (o.timer) {
@@ -329,7 +443,15 @@ class UI extends Phaser.Scene {
     if (this.closeCb) this.closeCb();
   }
   onKey(e) {
-    if (!this.open) return;
+    if (!this.open) {
+      const k = e.key;
+      if (k === 'p' || k === 'P' || k === 'Tab') { if (e.preventDefault) e.preventDefault(); this.togglePhone(); return; }
+      if (this.phoneOpen) {
+        if (k === 'Escape') this.togglePhone(false);
+        if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') { this.phoneTab = 1 - this.phoneTab; this.drawPhone(); }
+      }
+      return;
+    }
     const k = e.key;
     if (this.mode === 'choice' && !this.typing && ['1', '2', '3', '4'].includes(k)) { this.pick(+k - 1); return; }
     if (['e', 'E', ' ', 'Enter'].includes(k)) this.advance();
@@ -364,23 +486,32 @@ class Title extends Phaser.Scene {
       const s = this.add.rectangle(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.6), 2, 2, 0xffffff, Phaser.Math.FloatBetween(0.3, 1));
       this.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(800, 2000), yoyo: true, repeat: -1 });
     }
-    // ground mound
+    // Madison skyline: the Capitol on the isthmus, lakes on both sides
+    const glow = this.add.circle(W / 2, 360, 220, 0xfff1c4, 0.10);
+    this.tweens.add({ targets: glow, alpha: 0.03, duration: 2000, yoyo: true, repeat: -1 });
+    g.fillStyle(0x0d1530, 1); g.fillRect(0, 470, W, 30);
+    g.fillStyle(0x1b2a4f, 1); for (let x = 0; x < W; x += 6) g.fillRect(x, 476 + Math.sin(x / 13) * 2, 3, 1);
+    g.fillStyle(0x10162b, 1);
+    [[40, 60], [110, 90], [190, 50], [700, 80], [780, 110], [860, 60], [250, 40], [640, 45]].forEach(([x, h]) => g.fillRect(x, 470 - h, 50, h));
+    drawCapitol(g, W / 2, 476, 1.05, 0xe9e3d2, 0xb3ab96, 0xffd27a);
+    // ground in front
     g.fillStyle(0x3d2714, 1); g.fillEllipse(W / 2, H + 40, W * 1.4, 260);
     g.fillStyle(0x5c3d22, 1); g.fillEllipse(W / 2, H + 60, W * 1.2, 220);
+    this.add.text(W / 2, 214, 'Madison, Wisconsin', { fontFamily: FONT, fontSize: '14px', color: '#9aa4c8' }).setOrigin(0.5).setResolution(2);
 
-    this.add.text(W / 2, 120, 'TALE OF THE', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setResolution(2);
-    const t = this.add.text(W / 2, 180, 'BADGER', { fontFamily: FONT, fontSize: '84px', color: '#ffffff', fontStyle: 'bold', stroke: '#c5050c', strokeThickness: 12 }).setOrigin(0.5).setResolution(2);
+    this.add.text(W / 2, 62, 'TALE OF THE', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setResolution(2);
+    const t = this.add.text(W / 2, 122, 'BADGER', { fontFamily: FONT, fontSize: '84px', color: '#ffffff', fontStyle: 'bold', stroke: '#c5050c', strokeThickness: 12 }).setOrigin(0.5).setResolution(2);
     t.setShadow(6, 6, '#000000', 0, true, true);
-    this.add.text(W / 2, 250, 'Chapter 1 · Dig In', { fontFamily: FONT, fontSize: '22px', color: '#ffd166' }).setOrigin(0.5).setResolution(2);
+    this.add.text(W / 2, 186, 'Chapter 1 · Dig In', { fontFamily: FONT, fontSize: '22px', color: '#ffd166' }).setOrigin(0.5).setResolution(2);
 
-    const tail = this.add.image(W / 2 + 34, 420, 'tail').setScale(3.5).setOrigin(0.1, 0.5);
-    const b = this.add.sprite(W / 2, 390, 'badger', 0).setScale(3.5);
+    const tail = this.add.image(196, 506, 'tail').setScale(3).setOrigin(0.9, 0.5).setFlipX(true);
+    const b = this.add.sprite(230, 478, 'badger', 0).setScale(3);
     this.tweens.add({ targets: tail, angle: { from: -20, to: 25 }, duration: 160, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: b, y: 382, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: b, y: 470, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    const start = this.add.text(W / 2, 535, 'Press ENTER or click to start', { fontFamily: FONT, fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setResolution(2);
+    const start = this.add.text(W / 2, 560, 'Press ENTER or click to start', { fontFamily: FONT, fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setResolution(2);
     this.tweens.add({ targets: start, alpha: 0.2, duration: 700, yoyo: true, repeat: -1 });
-    this.add.text(W / 2, 590, 'WASD/Arrows move · E interact · SPACE tail shake · 1-4 choose', { fontFamily: FONT, fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);
+    this.add.text(W / 2, 600, 'WASD/Arrows move · E interact · SPACE tail shake · P phone · 1-4 choose', { fontFamily: FONT, fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);
 
     const go = () => {
       if (this.going) return; this.going = true;
@@ -426,7 +557,7 @@ class Walk extends Phaser.Scene {
     const z = talking ? this.baseZoom * 1.45 : this.baseZoom;
     cam.setZoom(cam.zoom + (z - cam.zoom) * 0.1);
   }
-  uiBusy() { return !this.ui || this.ui.open || this.time.now - this.ui.closedAt < 250; }
+  uiBusy() { return !this.ui || this.ui.open || this.ui.phoneOpen || this.time.now - this.ui.closedAt < 250; }
   movePlayer(time) {
     const k = this.keys, p = this.player;
     let dx = 0, dy = 0;
@@ -450,11 +581,11 @@ class Walk extends Phaser.Scene {
     const moving = Math.abs(this.vel.x) + Math.abs(this.vel.y) > 15;
     if (moving) { if (!p.anims.isPlaying) p.play('walk'); } else { p.stop(); p.setFrame(0); }
     if (dx !== 0) p.setFlipX(dx < 0);
-    p.setDepth(p.y);
+    p.setDepth(CHAR_D + p.y);
 
     // tail
     if (this.tail.visible) {
-      const side = p.flipX ? -1 : 1;
+      const side = p.flipX ? 1 : -1; // tail trails behind: opposite the way Bucky walks
       this.tail.setPosition(p.x + side * 13, p.y + 13).setFlipX(side < 0).setOrigin(side < 0 ? 0.9 : 0.1, 0.5);
       this.tail.setDepth(p.depth - 0.5);
       let ang = Math.sin(time / 260) * 10;
@@ -472,7 +603,7 @@ class Walk extends Phaser.Scene {
     cam.setRotation(S.depth >= 3 ? Math.sin(time / 900) * 0.012 * (S.depth - 2) : 0);
   }
   floatText(x, y, msg, color = '#ffffff') {
-    const t = this.add.text(x, y, msg, { fontFamily: FONT, fontSize: '12px', color, stroke: '#000', strokeThickness: 4, align: 'center' }).setOrigin(0.5).setDepth(5000).setResolution(3);
+    const t = this.add.text(x, y, msg, { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color, stroke: '#000', strokeThickness: 4, align: 'center' }).setOrigin(0.5).setDepth(5000).setResolution(3);
     this.tweens.add({ targets: t, y: y - 34, alpha: 0, duration: 1900, delay: 300, onComplete: () => t.destroy() });
   }
   followNPC(npc, target, dist, speed, time) {
@@ -483,7 +614,7 @@ class Walk extends Phaser.Scene {
       npc.y += Math.sin(a) * speed * this.game.loop.delta / 1000;
       npc.setFlipX(Math.cos(a) < 0);
     }
-    npc.setDepth(npc.y);
+    npc.setDepth(CHAR_D + npc.y);
     npc.setAngle(Math.sin(time / 420) * S.jakeDrunk * 1.4);
   }
 }
@@ -498,6 +629,7 @@ class Street extends Walk {
     const g = this.add.graphics().setDepth(-100);
     g.fillGradientStyle(0x050818, 0x050818, 0x1a1f45, 0x1a1f45, 1); g.fillRect(0, 0, WW, 300);
     for (let i = 0; i < 60; i++) g.fillStyle(0xffffff, Math.random() * 0.8 + 0.2).fillRect(Math.random() * WW, Math.random() * 200, 2, 2);
+    drawCapitol(g, 760, 300, 0.7, 0x8f8ca6, 0x6d6a85, 0xd9b46a);
     g.fillStyle(0xf5f0d0, 1); g.fillCircle(160, 60, 22);
     g.fillStyle(0x050818, 1); g.fillCircle(170, 54, 20);
     // neighbor houses
@@ -545,7 +677,7 @@ class Street extends Walk {
     this.setupPlayer(120, 330);
     this.jake = this.add.sprite(80, 330, 'jake');
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-    this.prompt = this.add.text(0, 0, '[E] Knock', { fontFamily: FONT, fontSize: '11px', color: '#ffd166', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6000).setResolution(3).setVisible(false);
+    this.prompt = this.add.text(0, 0, '[E] Knock', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#ffd166', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6000).setResolution(3).setVisible(false);
 
     withUI(this, ui => {
       this.ui = ui;
@@ -575,7 +707,7 @@ class Street extends Walk {
     this.ui.lines([{ who: '', text: '*knock knock*' }], () => {
       this.door.setFillStyle(0xffe9a8);
       const tyler = this.tyler = this.add.sprite(1070, 262, 'tyler').setDepth(-70);
-      this.tweens.add({ targets: tyler, y: 300, duration: 500, onComplete: () => tyler.setDepth(300) });
+      this.tweens.add({ targets: tyler, y: 300, duration: 500, onComplete: () => tyler.setDepth(CHAR_D + 300) });
       this.time.delayedCall(600, () => this.ui.lines([
         { who: 'TYLER', text: 'Hey, you made it! Come in, come in.' },
         { who: 'TYLER', text: 'Just dig in — the chips and drinks are in the kitchen. Make yourself at home!' },
@@ -615,7 +747,7 @@ class Party extends Walk {
     this.buildInteractables();
     this.buildFog();
 
-    this.prompt = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '11px', color: '#ffd166', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6000).setResolution(3);
+    this.prompt = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#ffd166', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6000).setResolution(3);
 
     withUI(this, ui => {
       this.ui = ui;
@@ -722,9 +854,9 @@ class Party extends Walk {
     this.revealed = true;
     this.physics.world.disable(this.gate);
     this.tweens.add({ targets: [...this.fog, this.fogLabel], alpha: 0, duration: 1400 });
-    this.tweens.add({ targets: [this.bathDoor, this.bathLabel], alpha: 1, duration: 1400 });
+    this.tweens.add({ targets: [this.bathDoor, this.bathLabel, ...this.laterItems], alpha: 1, duration: 1400 });
     this.dancers = [...this.kitchenCrowd, ...this.livingCrowd];
-    this.ui.toast('The rest of the party opens up: living room, beer pong, bathroom.', 3200);
+    this.ui.toast('The rest of the party opens up: living room, beer pong, bathroom, snacks + water.', 3200);
   }
   furn(x, y, w, h, draw, collide = true) {
     if (collide) this.solid(x, y, w, h);
@@ -739,11 +871,14 @@ class Party extends Walk {
       g.fillStyle(0x9a9286, 1); g.fillRect(220, 300, 200, 36);
       g.fillStyle(0x6f7f8a, 1); g.fillRect(300, 305, 70, 26);
       g.fillStyle(0x4c5a63, 1); g.fillRect(305, 309, 60, 18);
-      g.fillStyle(0x3d9be9, 1); g.fillRect(388, 302, 22, 30);
-      g.fillStyle(0xbfe3ff, 1); g.fillRect(391, 306, 16, 12);
     });
-    for (let r = 0; r < 4; r++) for (let i = 0; i < 4 - r; i++)
-      this.add.image(234 + i * 12 + r * 6, 336 - r * 13, r % 2 ? 'can2' : 'can').setDepth(349);
+    // snacks + water only show up once the house opens
+    const later = this.add.graphics().setDepth(349).setAlpha(0);
+    later.fillStyle(0x3d9be9, 1); later.fillRect(388, 302, 22, 30);
+    later.fillStyle(0xbfe3ff, 1); later.fillRect(391, 306, 16, 12);
+    later.fillStyle(0xf2f2f2, 1); later.fillCircle(256, 318, 15);
+    later.fillStyle(0xf2c14e, 1); for (let i = 0; i < 9; i++) later.fillCircle(250 + (i % 3) * 6, 313 + Math.floor(i / 3) * 5, 3);
+    this.laterItems = [later];
     // fridge + beer cases
     this.furn(560, 300, 60, 74, g => {
       g.fillStyle(0xf2f2f2, 1); g.fillRect(560, 300, 60, 74);
@@ -754,16 +889,16 @@ class Party extends Walk {
       g.fillStyle(0xb5835a, 1); g.fillRect(497, 314, 48, 18); g.fillRect(497, 334, 48, 18);
       g.fillStyle(UW_RED, 1); g.fillRect(510, 318, 22, 8); g.fillRect(510, 338, 22, 8);
     });
-    // island: chips + punch + cups
+    // drinks table right inside the door: beer stack (left) + punch bowl (right)
     this.furn(240, 520, 190, 74, g => {
       g.fillStyle(0x4a3020, 1); g.fillRect(240, 520, 190, 74);
       g.fillStyle(0x8a5a3a, 1); g.fillRect(240, 520, 190, 60);
-      g.fillStyle(0xf2f2f2, 1); g.fillCircle(285, 550, 17);
-      g.fillStyle(0xf2c14e, 1); for (let i = 0; i < 12; i++) g.fillCircle(277 + (i % 4) * 5, 543 + Math.floor(i / 4) * 5, 3);
-      g.fillStyle(0xdddddd, 0.8); g.fillCircle(380, 550, 21);
-      g.fillStyle(0xd7263d, 0.85); g.fillCircle(380, 550, 17);
+      g.fillStyle(0xdddddd, 0.8); g.fillCircle(385, 550, 21);
+      g.fillStyle(0xd7263d, 0.85); g.fillCircle(385, 550, 17);
     });
-    [[322, 538], [334, 556], [316, 566], [412, 532]].forEach(([x, y]) => this.add.image(x, y, 'cup').setDepth(595));
+    for (let r = 0; r < 4; r++) for (let i = 0; i < 4 - r; i++)
+      this.add.image(262 + i * 12 + r * 6, 566 - r * 13, r % 2 ? 'can2' : 'can').setDepth(595);
+    [[340, 540], [348, 560], [418, 528]].forEach(([x, y]) => this.add.image(x, y, 'cup').setDepth(595));
     this.sinkCans = [];
     // living room: pong table
     this.furn(860, 150, 240, 64, g => {
@@ -792,38 +927,53 @@ class Party extends Walk {
   }
 
   buildNPCs() {
-    const npc = (key, x, y, flip = false) => this.add.sprite(x, y, key).setDepth(y).setFlipX(flip);
-    this.tyler = npc('tyler', 420, 780);
+    const npc = (key, x, y, flip = false) => this.add.sprite(x, y, key).setDepth(CHAR_D + y).setFlipX(flip);
+    this.tyler = npc('tyler', 430, 780);
     this.jake = this.add.sprite(300, 800, 'jake');
-    this.brody = npc('brody', 520, 650, true);
-    this.brodyHome = { x: 520, y: 650 };
-    this.kayla = npc('kayla', 560, 450, true);
+    this.brody = npc('brody', 520, 660, true);
+    this.brodyHome = { x: 520, y: 660 };
+    this.kayla = npc('kayla', 570, 450, true);
     this.maya = npc('maya', 160, 170);
-    this.kitchenCrowd = [npc('d1', 470, 720, true), npc('d3', 170, 640)];
-    this.livingCrowd = [npc('d2', 900, 560), npc('d1', 1060, 640, true), npc('d3', 980, 480)];
-    this.livingCrowd.forEach((d, i) => this.tweens.add({ targets: d, y: d.y - 6, duration: 260 + i * 40, yoyo: true, repeat: -1 }));
+    this.nameTags = [[this.tyler, 'Tyler'], [this.brody, 'Brody'], [this.kayla, 'Kayla'], [this.maya, 'Maya'], [this.jake, 'Jake']].map(([n, t]) =>
+      ({ n, t: this.add.text(n.x, n.y - 30, t, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setResolution(3).setDepth(5800) }));
+
+    // background crowd: dark, faceless, can't be talked to
+    const keys = ['d1', 'd2', 'd3', 'p1', 'p2', 'couch'];
+    const blocked = [[230, 290, 210, 70], [225, 505, 220, 110], [485, 290, 140, 100], [280, 690, 130, 160], [380, 560, 120, 140], [530, 410, 80, 80], [190, 560, 60, 60],
+      [840, 130, 280, 110], [1250, 500, 100, 280], [1250, 310, 80, 100]];
+    const free = (x, y) => !blocked.some(([bx, by, bw, bh]) => x > bx && x < bx + bw && y > by && y < by + bh);
+    const crowd = (n, x0, y0, x1, y1, dance) => {
+      const out = [];
+      let tries = 0;
+      while (out.length < n && tries++ < 500) {
+        const x = Phaser.Math.Between(x0, x1), y = Phaser.Math.Between(y0, y1);
+        if (!free(x, y) || out.some(o => Phaser.Math.Distance.Between(o.x, o.y, x, y) < 40)) continue;
+        const sp = this.add.sprite(x, y, Phaser.Utils.Array.GetRandom(keys)).setTint(0x23232f).setAlpha(0.95).setDepth(CHAR_D + y).setFlipX(Math.random() < 0.5);
+        this.tweens.add({ targets: sp, y: y - (dance ? 6 : 2), duration: Phaser.Math.Between(240, 600), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 400) });
+        out.push(sp);
+      }
+      return out;
+    };
+    this.kitchenCrowd = crowd(9, 90, 400, 615, 815, false);
+    this.livingCrowd = crowd(18, 690, 260, 1240, 815, true);
     this.dancers = [...this.kitchenCrowd];
-    this.ponger = [npc('p1', 840, 182), npc('p2', 1122, 182, true)];
-    this.couchGuy = npc('couch', 1300, 580);
+    this.ponger = crowd(2, 845, 170, 1125, 200, false);
+    this.couchGuy = this.add.sprite(1300, 580, 'couch').setTint(0x23232f).setDepth(CHAR_D + 580);
   }
 
   buildInteractables() {
-    const crowdTalk = () => this.say('', Phaser.Utils.Array.GetRandom(['"Bucky! Do the tail thing!"', '"This song slaps."', '"Have you seen the punch? It\'s DANGEROUS lol."']));
     this.inter = [
-      { x: 285, y: 618, r: 55, label: 'Eat chips', fn: () => this.eatChips() },
-      { x: 380, y: 618, r: 55, label: 'Punch bowl', fn: () => this.punch() },
-      { x: 262, y: 376, r: 55, label: 'Grab a beer', fn: () => this.grabBeer() },
-      { x: 399, y: 376, r: 50, label: 'Get water', fn: () => this.getWater() },
+      { x: 290, y: 620, r: 55, label: 'Beer stack', fn: () => this.grabBeer() },
+      { x: 385, y: 620, r: 55, label: 'Punch bowl', fn: () => this.punch() },
+      { x: 256, y: 376, r: 50, label: 'Eat chips', zone: 'living', fn: () => this.eatChips() },
+      { x: 399, y: 376, r: 50, label: 'Get water', zone: 'living', fn: () => this.getWater() },
       { x: 480, y: 326, r: 50, label: 'Knock', zone: 'living', fn: () => this.knock() },
       { x: 980, y: 240, r: 80, label: 'Beer pong', zone: 'living', fn: () => this.pongTalk() },
       { npc: this.maya, r: 55, label: 'Talk', fn: () => this.mayaTalk() },
       { npc: this.kayla, r: 50, label: 'Talk', fn: () => this.kaylaTalk() },
       { npc: this.jake, r: 50, low: true, label: 'Talk to Jake', fn: () => this.jakeTalk() },
       { npc: this.tyler, r: 50, label: 'Talk', fn: () => this.tylerTalk() },
-      { npc: this.brody, r: 50, label: 'Talk', fn: () => this.brodyTalk() },
-      { npc: this.couchGuy, r: 60, zone: 'living', label: 'Talk', fn: () => this.say('', '*couch guy gives you a thumbs up and goes back to his phone*') },
-      ...this.kitchenCrowd.map(d => ({ npc: d, r: 45, label: 'Talk', fn: crowdTalk })),
-      ...this.livingCrowd.map(d => ({ npc: d, r: 45, zone: 'living', label: 'Talk', fn: crowdTalk }))
+      { npc: this.brody, r: 50, label: 'Talk', fn: () => this.brodyTalk() }
     ];
   }
 
@@ -839,7 +989,7 @@ class Party extends Walk {
   update(time) {
     if (!this.player || this.ended) return;
     this.movePlayer(time);
-    if (!this.brodyWalking) this.brody.setDepth(this.brody.y);
+    if (!this.brodyWalking) this.brody.setDepth(CHAR_D + this.brody.y);
     if (!this.jakeDown && !this.jakeLeft) this.followNPC(this.jake, { x: this.player.x - 38, y: this.player.y + 6 }, 50, 150, time);
 
     // pending story events
@@ -861,6 +1011,7 @@ class Party extends Walk {
     } else this.prompt.setVisible(false);
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && !this.uiBusy() && !this.frozen) this.tailShake(time);
+    this.nameTags.forEach(({ n, t }) => t.setPosition(n.x, n.y - 32).setVisible(n.visible && !(n === this.jake && this.jakeDown)));
     // objective marker
     const mt = this.markerTarget;
     if (mt && !this.uiBusy()) {
@@ -898,14 +1049,20 @@ class Party extends Walk {
   setStep(name) {
     const steps = {
       tail: { text: 'Say hi to the kitchen crowd: show off your tail (SPACE)', x: 330, y: 700 },
-      kitchen: { text: 'Dig in: chips, punch, or a beer from the stack', x: 335, y: 560 },
+      kitchen: { text: 'Dig in: the beer stack or the punch bowl', x: 335, y: 545 },
       bathroom: { text: 'Someone\'s been in the bathroom forever. Check on them.', x: 480, y: 330 },
       balcony: { text: 'Get some air on the balcony', npc: this.maya },
       jake: { text: 'Where did Jake go? Find him.', npc: this.jake }
     };
     this.step = name;
+    this.markCurrent(name);
     this.markerTarget = steps[name] || null;
     this.ui.objective(steps[name] ? steps[name].text : '');
+  }
+  markCurrent(id) {
+    if (S.current && S.current !== id && !S.done.includes(S.current)) S.done.push(S.current);
+    S.current = id;
+    if (this.ui.phoneOpen) this.ui.drawPhone();
   }
   stepDone(name) {
     if (this.step !== name) return;
@@ -960,7 +1117,7 @@ class Party extends Walk {
   walkTo(npc, x, y, done) {
     const d = Phaser.Math.Distance.Between(npc.x, npc.y, x, y);
     npc.setFlipX(x < npc.x);
-    this.tweens.add({ targets: npc, x, y, duration: Math.max(200, d * 6), onUpdate: () => npc.setDepth(npc.y), onComplete: done });
+    this.tweens.add({ targets: npc, x, y, duration: Math.max(200, d * 6), onUpdate: () => npc.setDepth(CHAR_D + npc.y), onComplete: done });
   }
 
   // ---------- scenes ----------
@@ -972,17 +1129,17 @@ class Party extends Walk {
       this.brodyWalking = false;
       this.ui.lines([{ who: 'BRODY', text: 'BRO. That tail is legendary. You gotta celebrate — here!' }], () => {
         this.frozen = false;
-        const refusedFollow = () => { S.refused++; this.brodyHomeWalk(); fin(true); };
+        const refusedFollow = () => { S.refused++; this.ui.learn('no'); this.brodyHomeWalk(); fin(true); };
         this.ui.choose({
           who: 'BRODY', text: '*holds out a red cup*', timer: 5,
           choices: [
-            { label: '🍺 "Let\'s go!"', fn: () => { this.drink(2); this.say('BRODY', 'THAT\'S what I\'m talking about!', () => { this.brodyHomeWalk(); fin(false); }); } },
+            { label: '🍺 "Let\'s go!"', fn: () => { this.drink(2); this.say('BRODY', 'THAT\'S what I\'m talking about!', () => { this.ui.learn('pressure'); this.brodyHomeWalk(); fin(false); }); } },
             { label: '🥔 "Lemme grab chips first."', fn: () => { this.say('BRODY', 'Fair, fair. I\'ll catch you later, legend.', () => { this.brodyHomeWalk(); fin(false); }); } },
             { label: '💧 "I\'m on water rn."', sober: true, fn: () => this.say('BRODY', 'Respect, respect.', refusedFollow) },
             { label: '🦶 Dig in your heels: "Nah, I\'m good."', sober: true, fn: () => this.say('BRODY', 'Suit yourself, legend.', refusedFollow) }
           ],
           waterOk: () => this.say('BRODY', 'Oh you\'re set? Bet.', refusedFollow),
-          onTimeout: () => { this.say('', 'Before you can answer, he puts the cup in your hand. You drink without thinking.', () => { this.drink(2, 'Pressure doesn\'t always look mean. Sometimes it\'s a compliment.'); this.brodyHomeWalk(); fin(false); }); }
+          onTimeout: () => { this.say('', 'Before you can answer, he puts the cup in your hand. You drink without thinking.', () => { this.drink(2, 'Pressure doesn\'t always look mean. Sometimes it\'s a compliment.'); this.ui.learn('pressure'); this.brodyHomeWalk(); fin(false); }); }
         });
       });
     });
@@ -997,8 +1154,8 @@ class Party extends Walk {
       this.ui.choose({
         who: 'KAYLA', text: 'Wait... you don\'t drink? *laughs* Why\'d you even come to a party then?',
         choices: [
-          { label: '😎 "I\'m here for the vibes. And the chips."', sober: true, fn: () => { this.say('KAYLA', 'Okay, fair. The chips ARE elite.', () => this.ui.toast('A confident, casual answer shuts it down fast. You don\'t owe anyone a reason.', 3800)); fin(); } },
-          { label: '🦶 "Just not feeling it tonight."', sober: true, fn: () => { this.say('KAYLA', 'Huh. Okay.', () => this.ui.toast('You don\'t owe anyone an explanation.', 3000)); fin(); } },
+          { label: '😎 "I\'m here for the vibes. And the chips."', sober: true, fn: () => { this.ui.learn('no'); this.say('KAYLA', 'Okay, fair. The chips ARE elite.', () => this.ui.toast('A confident, casual answer shuts it down fast. You don\'t owe anyone a reason.', 3800)); fin(); } },
+          { label: '🦶 "Just not feeling it tonight."', sober: true, fn: () => { this.ui.learn('no'); this.say('KAYLA', 'Huh. Okay.', () => this.ui.toast('You don\'t owe anyone an explanation.', 3000)); fin(); } },
           { label: '😬 "...I mean, I could have one."', fn: () => { this.say('KAYLA', 'Yesss! Kitchen, let\'s go.'); this.drink(2, 'Judgment is pressure too.'); fin(); } }
         ]
       });
@@ -1008,6 +1165,7 @@ class Party extends Walk {
   stage1() {
     this.setClock(90);
     S.flags.s1 = true;
+    this.markCurrent('pong');
     this.ui.banner('10:30 PM');
     this.spawnMess(18);
     S.jakeDrunk = Math.max(S.jakeDrunk, 3);
@@ -1033,6 +1191,7 @@ class Party extends Walk {
   stage2() {
     this.setClock(180);
     S.flags.s2 = true;
+    this.markCurrent('shots');
     this.ui.banner('12:00 AM');
     this.spawnMess(30);
     S.jakeDrunk = Math.max(S.jakeDrunk, 6);
@@ -1041,7 +1200,7 @@ class Party extends Walk {
   }
   jakeWandersOff() {
     this.jakeLeft = true;
-    this.jake.setPosition(1010, 600).setFlipX(true).setDepth(600);
+    this.jake.setPosition(1010, 600).setFlipX(true).setDepth(CHAR_D + 600);
     this.ui.toast('Wait... where did Jake go?');
     this.setStep('jake');
   }
@@ -1051,7 +1210,7 @@ class Party extends Walk {
       this.ui.choose({
         who: 'TYLER', text: '*hands you a shot glass*', timer: 5,
         choices: [
-          { label: '🥃 Take the shot', fn: () => { this.drink(3, 'Shots hit way faster than beer.'); fin(); } },
+          { label: '🥃 Take the shot', fn: () => { this.drink(3, 'Shots hit way faster than beer.'); this.ui.learn('shots'); fin(); } },
           { label: '💧 Raise your water and cheers', sober: true, fn: () => { S.refused++; this.say('TYLER', 'WATER GANG! Okay okay!'); fin(); } },
           { label: '🦶 Dig in your heels: "I\'m good."', sober: true, fn: () => { S.refused++; this.say('TYLER', 'All good, more for us!'); fin(); } },
           { label: '🌙 Slip out to the balcony', fn: () => { S.refused++; this.player.setPosition(160, 230); this.ui.toast('You step away from the crowd. Fresh air.'); fin(); } }
@@ -1065,13 +1224,14 @@ class Party extends Walk {
     this.ui.choose({
       who: '', text: 'A whole pyramid of cans. Someone built it with love.', choices: [
         { label: '🍺 Crack one open', fn: () => { this.drink(2); this.stepDone('kitchen'); } },
-        { label: '🦶 Leave it', sober: true, fn: () => { } }
+        { label: '🦶 Leave it', sober: true, fn: () => this.stepDone('kitchen') }
       ]
     });
   }
   eatChips() {
     S.chips++;
     S.chipsBuffer = 2;
+    this.ui.learn('food');
     this.ui.refresh();
     this.floatText(this.player.x, this.player.y - 40, '*crunch*', '#f2c14e');
     this.stepDone('kitchen');
@@ -1080,24 +1240,25 @@ class Party extends Walk {
   getWater() {
     S.water++;
     S.holdingWater = true;
+    this.ui.learn('water');
     this.ui.refresh();
     this.floatText(this.player.x, this.player.y - 40, '🥤 water', '#9fd6ff');
     this.stepDone('kitchen');
     if (!S.flags.waterTip) { S.flags.waterTip = true; this.ui.lines([{ who: '', text: 'You fill a red cup with water.' }, { who: '', text: 'Water doesn\'t sober you up. But a cup in your hand means fewer people offer you drinks — and it keeps you pacing.' }]); }
   }
   punch() {
-    const drinkIt = () => { this.drink(3, 'That was NOT juice. Mixed drinks hide how strong they are.'); this.stepDone('kitchen'); };
+    const drinkIt = () => { this.drink(3, 'That was NOT juice. Mixed drinks hide how strong they are.'); this.ui.learn('mixed'); this.stepDone('kitchen'); };
     const ask = () => this.ui.lines([{ who: 'KAYLA', text: 'The punch? Lol it\'s like... half vodka? Tyler lost count.' }], () => this.ui.choose({
       who: 'BUCKY', text: '...half vodka.', choices: [
         { label: '🍹 Drink it anyway', fn: drinkIt },
-        { label: '🦶 Skip it', sober: true, fn: () => { this.ui.toast('Good call. You can\'t tell how strong a mixed drink is by taste.'); this.stepDone('kitchen'); } }
+        { label: '🦶 Skip it', sober: true, fn: () => { this.ui.learn('mixed'); this.stepDone('kitchen'); } }
       ]
     }));
     this.ui.choose({
       who: '', text: 'A big bowl of red punch. Smells like fruit juice.', choices: [
         { label: '🍹 Drink a cup', fn: drinkIt },
         { label: '❓ Ask what\'s in it', fn: ask },
-        { label: '🦶 Skip it', sober: true, fn: () => { } }
+        { label: '🦶 Skip it', sober: true, fn: () => this.stepDone('kitchen') }
       ]
     });
   }
@@ -1108,7 +1269,7 @@ class Party extends Walk {
       { who: '', text: '*knock knock*' },
       { who: 'BUCKY', text: 'Hey... you okay in there? You\'ve been in there a while.' },
       { who: 'VOICE', text: '...yeah. I\'m good. Thanks for checking.' }
-    ], () => { this.ui.toast('Checking on people matters. (They might remember this.)'); this.stepDone('bathroom'); });
+    ], () => { this.ui.learn('check'); this.stepDone('bathroom'); });
   }
   pongTalk() {
     if (!S.flags.s1) this.say('', 'The pong table is set up. Nobody\'s playing yet.');
@@ -1116,7 +1277,7 @@ class Party extends Walk {
   }
   mayaTalk() {
     const breather = () => {
-      this.ui.lines([{ who: '', text: 'You hang out on the balcony for a while. The music\'s muffled out here.' }, { who: '', text: 'Fresh air doesn\'t sober you up — only time does. But stepping away gives your body that time.' }], () => this.advance(15));
+      this.ui.lines([{ who: '', text: 'You hang out on the balcony for a while. The music\'s muffled out here.' }, { who: '', text: 'Fresh air doesn\'t sober you up — only time does. But stepping away gives your body that time.' }], () => { this.advance(15); this.ui.learn('time'); });
     };
     const first = !S.talkedMaya;
     S.talkedMaya = true;
@@ -1159,6 +1320,7 @@ class Party extends Walk {
 
   // ---------- ending of the night ----------
   endNight() {
+    this.markCurrent('end');
     if (!S.rewind || S.depth >= 6) { this.blackout(); return; }
     this.jakeClimax();
   }
@@ -1176,7 +1338,7 @@ class Party extends Walk {
     this.jakeDown = true;
     this.player.setVelocity(0, 0);
     this.jakeLeft = false;
-    this.jake.setPosition(1300, 650).setAngle(90).setDepth(800).setTint(0xc8d6e0);
+    this.jake.setPosition(1300, 650).setAngle(90).setDepth(CHAR_D + 800).setTint(0xc8d6e0);
     this.player.setPosition(1215, 650).setFlipX(false);
     this.couchGuy.setVisible(false);
     this.brody.setPosition(1180, 590);
@@ -1197,7 +1359,7 @@ class Party extends Walk {
       { who: '', text: 'His breathing is slow — long gaps between breaths.' },
       { who: '', text: 'His skin is cold and clammy. There\'s vomit on the floor.' },
       { who: '', text: 'These are signs of alcohol poisoning.' }
-    ], act);
+    ], () => { this.ui.learn('signs'); act(); });
     const act = () => this.ui.choose({
       who: 'BUCKY', text: 'What now?', choices: [
         { label: '☕ Coffee + a cold shower to wake him up', fn: () => this.ui.lines([{ who: '', text: 'Coffee and cold showers don\'t sober anyone up. A cold shower can also send someone into shock. That\'s a myth.' }], act) },
@@ -1209,8 +1371,10 @@ class Party extends Walk {
       { who: '', text: 'You call 911 and stay with him until help arrives.' },
       { who: 'BRODY', text: '...wait. Is he gonna be okay?' },
       { who: 'BUCKY', text: 'He will be. We called.' },
+      { who: '', text: '📱 New on your phone: Roll them on their side, call 911, stay with them.' },
       { who: '', text: 'Something tickles behind you. You turn around...' }
     ], () => {
+      LEARNED.add('call');
       this.ended = true;
       this.ui.showHUD(false);
       this.cameras.main.fadeOut(1500, 255, 255, 255);
