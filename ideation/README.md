@@ -11,4 +11,4 @@ One file per idea (e.g. `idea-name.md`). Suggested outline:
 
 ## Ideas
 
-(none yet)
+- [Badger prevention game](badger-prevention-game.md): mandatory prevention modules as a pixel-art RPG
