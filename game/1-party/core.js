@@ -505,7 +505,7 @@ class UI extends Phaser.Scene {
     this.onTimeout = o.onTimeout;
     this.typeText(o.text, () => {
       choices.forEach((c, i) => {
-        let label = S.depth >= 8 ? scramble(c.label) : c.label;
+        let label = S.depth >= 8 && o.scrambleChoices !== false ? scramble(c.label) : c.label;
         this.choiceTexts[i].setText(`${i + 1}. ${label}`).setVisible(true).setY(H - 146 + i * 31);
       });
       this.sel = 0;

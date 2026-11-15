@@ -11,6 +11,10 @@ class Party extends Walk {
     const WW = 1400, WH = 900;
     this.WW = WW; this.WH = WH;
     this.ended = false;
+    // A replay reuses this scene instance. The previous ending may have frozen
+    // Bucky, so clear the flag before rebuilding the party controls.
+    this.frozen = false;
+    this.tweens.timeScale = 1;
     this.pending = [];
     this.physics.world.setBounds(0, 0, WW, WH);
     const cam = this.cameras.main;
@@ -43,7 +47,10 @@ class Party extends Walk {
           { who: '', text: 'You dig back through the night. The memories come back one by one.' },
           { who: 'TYLER', text: 'Hey, you made it! Just dig in — chips and drinks are right here!' },
           { who: '', text: 'This time, choose differently. Find out where your tail went.' }
-        ], () => { this.setStep('tail'); this.time.delayedCall(500, () => this.ui.togglePhone(true)); }));
+        ], () => {
+          this.setStep('tail');
+          this.time.delayedCall(500, () => this.ui.toast('WASD: move   ·   E: interact   ·   ↑: phone', 4500));
+        }));
       } else {
         ui.banner('9:00 PM');
         this.time.delayedCall(1800, () => {

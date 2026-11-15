@@ -75,11 +75,11 @@ class Terrace extends Phaser.Scene {
     this.add.text(W / 2, 240, 'LAST NIGHT (what you remember)', { fontFamily: FONT, fontSize: '18px', color: '#ffd166', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2001).setResolution(RES_UI);
     this.add.text(W / 2 - 240, 270, lines.join('\n'), { fontFamily: FONT, fontSize: '17px', color: '#ffffff', lineSpacing: 8 }).setDepth(2001).setResolution(RES_UI);
     this.time.delayedCall(800, () => this.ui.choose({
-      who: 'BUCKY', text: 'Your tail is somewhere in last night. So is Jake.',
+      who: 'BUCKY', text: 'Your tail is somewhere in last night. So is Jake.', scrambleChoices: false,
       choices: [
-        { label: '⛏ Dig down into the Burrow', fn: () => { window.location.href = '2-burrow/index.html?done=party'; } },
-        { label: '⏪ Dig back through the night (replay the party)', fn: () => this.dig() },
-        { label: '🏠 Back to title', fn: () => { this.scene.stop('UI'); this.scene.start('Title'); } }
+        { label: 'Return to the Burrow', fn: () => { window.location.href = '2-burrow/index.html?done=party'; } },
+        { label: 'Replay the party from the beginning', fn: () => this.dig() },
+        { label: 'Back to the title screen', fn: () => { this.scene.stop('UI'); this.scene.start('Title'); } }
       ]
     }));
   }
