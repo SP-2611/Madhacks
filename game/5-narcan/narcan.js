@@ -1,7 +1,7 @@
 // Bucky vs the Pill: a standalone Narcan chapter.
 // Walk down State Street, get ambushed by a fentanyl-laced pill, lose the fight
 // (always), then Bucky's soul has a time limit to find Narcan on campus.
-// Reuses the shared badger sprite (../src/sprite.js) and pixel helpers (../src/prologue.js).
+// Reuses the shared badger sprite (../1-party/sprite.js) and pixel helpers (../1-party/scenes/prologue.js).
 
 const W = 960, H = 640;
 const FONT = 'Verdana, "Segoe UI", Tahoma, sans-serif';
@@ -405,7 +405,7 @@ class End extends Phaser.Scene {
     lessons.forEach((t, i) => this.add.text(120, 230 + i * 62, '• ' + t, { fontFamily: FONT, fontSize: '19px', color: '#ffffff', wordWrap: { width: W - 240 } }).setResolution(2));
     const back = this.add.text(W / 2, 552, 'RETURN TO BURROW  ·  ENTER / CLICK', { fontFamily: FONT, fontSize: '20px', color: '#ffd166', fontStyle: 'bold', backgroundColor: '#241a25', padding: { x: 12, y: 8 } }).setOrigin(0.5).setResolution(2).setInteractive({ useHandCursor: true });
     this.tweens.add({ targets: back, alpha: 0.65, duration: 700, yoyo: true, repeat: -1 });
-    const returnToBurrow = () => { window.location.href = '../Burrow/index.html'; };
+    const returnToBurrow = () => { window.location.href = '../2-burrow/index.html?done=narcan'; };
     back.once('pointerdown', returnToBurrow);
     this.input.keyboard.once('keydown-ENTER', returnToBurrow);
     this.add.text(W / 2, 600, 'R: PLAY AGAIN', { fontFamily: FONT, fontSize: '13px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);

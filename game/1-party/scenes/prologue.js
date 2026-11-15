@@ -161,7 +161,7 @@ class Prologue extends Phaser.Scene {
   // the title is revealed only once the prologue is over
   finish() {
     if (this.leaving) return; this.leaving = true;
-    this.cameras.main.fadeOut(700, 0, 0, 0, (c, t) => { if (t === 1) this.scene.start('Title'); }, this);
+    this.cameras.main.fadeOut(700, 0, 0, 0, (c, t) => { if (t === 1) { if (typeof resetState === 'function') resetState(false); this.scene.start('Street'); } }, this);
   }
   sky(top, bottom) { this.g.fillGradientStyle(top, top, bottom, bottom, 1); this.g.fillRect(0, 0, W, H); }
   hills(baseY, amp, color, freq, phase) {

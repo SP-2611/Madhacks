@@ -6,15 +6,23 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   #game { width: 100%; height: 100%; }
-  canvas { image-rendering: pixelated; }
+  canvas { image-rendering: auto; }
 </style>
 </head>
 <body>
 <div id="game"></div>
 <script src="lib/phaser.min.js"></script>
-<script src="src/sprite.js"></script>
-<script src="src/prologue.js"></script>
-<script src="src/music.js"></script>
-<script src="src/game.js"></script>
+<script src="1-party/sprite.js"></script>
+<script src="1-party/scenes/prologue.js"></script>
+<script src="1-party/music.js"></script>
+<script src="1-party/core.js"></script>
+<script src="1-party/scenes/title.js"></script>
+<script src="1-party/scenes/street.js"></script>
+<script src="1-party/scenes/party.js"></script>
+<script src="1-party/scenes/state-street.js"></script>
+<script src="1-party/scenes/blackout.js"></script>
+<script src="1-party/scenes/terrace.js"></script>
+<script src="1-party/scenes/ending.js"></script>
+<script src="1-party/main.js"></script>
 </body>
 </html>

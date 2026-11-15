@@ -1,18 +1,24 @@
 const W=960,H=600;
+// Render scale: draw at real screen resolution so text is sharp (layout stays W x H)
+const RS=Math.max(1,Math.min(3,Math.round(Math.min(window.innerWidth/W,window.innerHeight/H)*(window.devicePixelRatio||1))));
+// Chapters you've cleared: each chapter sends you back here with ?done=<id>
+const DONE=(()=>{let d=[];try{d=JSON.parse(localStorage.getItem('tob_done')||'[]')}catch(e){}const q=new URLSearchParams(location.search).get('done');if(q&&!d.includes(q)){d.push(q);try{localStorage.setItem('tob_done',JSON.stringify(d))}catch(e){}}return d})();
 const LEVELS=[
- {x:270,y:238,title:'BUCKY VS COURSEWORK',sign:'COURSEWORK',color:0xd9b16e,description:'Find a class and build your schedule.',href:'../Bucky vs courses/index.html'},
- {x:690,y:238,title:'BUCKY VS DRUGS',sign:'NARCAN',color:0xa7b28a,description:'Learn how naloxone can help in an overdose.',href:'../Narcan/index.html'},
- {x:270,y:397,title:"BUCKY'S INBOX",sign:'PHISHING',color:0xc58b7e,description:'Help Bucky spot suspicious messages.',href:'../Phishing/index.html'},
- {x:690,y:397,title:'THE BEGINNING',sign:'PROLOGUE',color:0xa2a9c7,description:'Start at the beginning of Bucky’s story.',href:'../index.html'}
+ {id:'phishing',x:270,y:238,title:"CH 2 · BUCKY'S INBOX",sign:'PHISHING',color:0xc58b7e,description:'Morgridge Hall: help Bucky spot a phishing email.',href:'../3-phishing/index.html'},
+ {id:'coursework',x:690,y:238,title:'CH 3 · BUCKY VS COURSEWORK',sign:'COURSEWORK',color:0xd9b16e,description:'Bascom Hill: find a class and build your schedule.',href:'../4-coursework/index.html'},
+ {id:'narcan',x:270,y:397,title:'CH 4 · BUCKY VS DRUGS',sign:'NARCAN',color:0xa7b28a,description:'State Street: learn how naloxone can save a life.',href:'../5-narcan/index.html'},
+ {id:'party',x:690,y:397,title:'CH 1 · THE PARTY',sign:'START OVER',color:0xa2a9c7,description:'Back to the title: the prologue and the house party.',href:'../index.html'}
 ];
+const CLEARED=['phishing','coursework','narcan'].filter(id=>DONE.includes(id)).length;
 
 class Burrow extends Phaser.Scene{
  preload(){this.load.spritesheet('badger',BADGER_DATA,{frameWidth:50,frameHeight:48})}
  create(){
+  this.cameras.main.setZoom(RS).centerOn(W/2,H/2);
   this.drawBurrow();
   const title=this.add.text(W/2,53,'THE BURROW',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'84px',fontStyle:'bold',color:'#ffffff',stroke:'#c5050c',strokeThickness:12}).setOrigin(.5).setResolution(2);
   title.setShadow(6,6,'#000000',0,true,true);
-  this.add.text(W/2,126,'CHAPTER SELECT',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'22px',color:'#ffffff'}).setOrigin(.5).setResolution(2);
+  this.add.text(W/2,126,CLEARED===3?'ALL CHAPTERS CLEARED!':'CHAPTER SELECT  ·  '+CLEARED+'/3 CLEARED',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'22px',color:'#ffffff'}).setOrigin(.5).setResolution(2);
   this.tunnels=LEVELS.map((item,index)=>this.makeTunnel(item,index));
   this.badger=this.add.sprite(480,459,'badger',0).setScale(1.5).setDepth(6);
   this.anims.create({key:'badger-idle',frames:this.anims.generateFrameNumbers('badger',{start:0,end:3}),frameRate:5,repeat:-1});
@@ -25,6 +31,7 @@ class Burrow extends Phaser.Scene{
   this.input.keyboard.on('keydown',e=>{const d={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down'}[e.key];if(d){this.moveHeld.add(d);e.preventDefault()}});
   this.input.keyboard.on('keyup',e=>{const d={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down'}[e.key];if(d)this.moveHeld.delete(d)});
   this.refreshSelection();
+  const sharp=o=>{if(o.type==='Text')o.setResolution(RS+1);if(o.list)o.list.forEach(sharp)};this.children.list.forEach(sharp);
  }
 
  drawBurrow(){
@@ -60,7 +67,8 @@ class Burrow extends Phaser.Scene{
   g.fillStyle(0xa17a4b).fillRect(-62,-49,13,3).fillRect(-31,-57,15,3).fillRect(4,-58,13,3).fillRect(43,-47,13,3);
   c.add(g);
   const board=this.add.graphics();board.fillStyle(0x372518).fillRect(-67,48,134,23);board.fillStyle(0x765435).fillRect(-66,48,132,3);board.fillStyle(0x24170f).fillRect(-65,68,130,3);c.add(board);
-  c.add(this.add.text(0,53,level.sign,{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#ead7b4'}).setOrigin(.5));
+  const done=DONE.includes(level.id)&&level.id!=='party';
+  c.add(this.add.text(0,53,(done?'✓ ':'')+level.sign,{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:done?'#9be37a':'#ead7b4'}).setOrigin(.5));
   c.add(this.add.text(0,84,level.title,{fontFamily:'monospace',fontSize:'12px',fontStyle:'bold',color:'#f0dfc0',stroke:'#25180f',strokeThickness:4}).setOrigin(.5));
   const rim=this.add.graphics();rim.lineStyle(2,0xd0ad79,0.55).strokePoints([{x:-76,y:42},{x:-78,y:9},{x:-66,y:-32},{x:-43,y:-55},{x:-15,y:-70},{x:22,y:-68},{x:55,y:-49},{x:73,y:-18},{x:79,y:18},{x:76,y:43}],true);c.add(rim);c.rim=rim;
   c.setSize(168,132).setInteractive(new Phaser.Geom.Rectangle(-84,-67,168,134),Phaser.Geom.Rectangle.Contains);
@@ -125,4 +133,4 @@ class Burrow extends Phaser.Scene{
  }
 }
 
-new Phaser.Game({type:Phaser.AUTO,parent:'game',width:W,height:H,pixelArt:true,backgroundColor:'#17100d',scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[Burrow]});
+new Phaser.Game({type:Phaser.AUTO,parent:'game',width:W*RS,height:H*RS,pixelArt:true,backgroundColor:'#17100d',scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[Burrow]});

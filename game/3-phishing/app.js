@@ -91,7 +91,7 @@ function submitFindings() {
 
 $('reportBtn').addEventListener('click', submitFindings);
 $('againBtn').addEventListener('click', () => window.location.reload());
-$('burrowBtn').addEventListener('click', () => { window.location.href = '../Burrow/index.html'; });
+$('burrowBtn').addEventListener('click', () => { window.location.href = '../2-burrow/index.html?done=phishing'; });
 
 const introScreen = $('introScreen');
 const sendStatus = $('sendStatus');

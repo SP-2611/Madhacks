@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tale of the Badger · Scene tester</title>
+<style>
+  body { margin: 0; min-height: 100vh; background: #14101a; color: #f2ead8; font-family: Verdana, "Segoe UI", sans-serif; display: flex; justify-content: center; }
+  main { width: min(760px, 92vw); padding: 40px 0; }
+  h1 { margin: 0 0 4px; font-size: 30px; }
+  p { color: #b9ad98; margin: 0 0 24px; }
+  h2 { font-size: 15px; letter-spacing: .08em; color: #ffd166; margin: 28px 0 10px; }
+  a { display: flex; justify-content: space-between; gap: 16px; padding: 13px 16px; margin: 6px 0; border-radius: 10px;
+      background: #241c2b; color: #fff; text-decoration: none; border: 1px solid #3a2f44; }
+  a:hover { background: #c5050c; border-color: #c5050c; }
+  span { color: #b9ad98; font-size: 13px; }
+  a:hover span { color: #ffe1e1; }
+  code { color: #ffd166; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Scene tester</h1>
+  <p>Jump straight into any scene. The full game is <a href="../../index.html" style="display:inline;padding:0;margin:0;background:none;border:0;color:#ffd166">game/index.html</a>. Each link opens the full game with <code>?scene=Name</code>.</p>
+
+  <h2>CHAPTER 1 · IN PLAY ORDER</h2>
+  <a href="../../index.html?scene=Title">1. Title <span>title.js</span></a>
+  <a href="../../index.html?scene=Prologue">2. Prologue: how Badgers got their name <span>prologue.js</span></a>
+  <a href="../../index.html?scene=Street">3. Langdon St: phone tutorial, knock <span>street.js</span></a>
+  <a href="../../index.html?scene=Party">4. House party (first night) <span>party.js</span></a>
+  <a href="../../index.html?scene=Party&rewind=1">4b. House party (dig-back replay, save Jake) <span>party.js · rewind=1</span></a>
+  <a href="../../index.html?scene=StateStreet">5a. State Street, 3 AM (sober ending) <span>state-street.js</span></a>
+  <a href="../../index.html?scene=Blackout&drinks=4">5b. Blackout (drank) <span>blackout.js · drinks=4</span></a>
+  <a href="../../index.html?scene=Terrace&drinks=4">6. Mem U Terrace wake-up <span>terrace.js · drinks=4</span></a>
+  <a href="../../index.html?scene=Ending&rewind=1">7. Tail restored ending <span>ending.js</span></a>
+
+  <h2>OTHER CHAPTERS</h2>
+  <a href="../../2-burrow/index.html">The Burrow: chapter select <span>2-burrow/</span></a>
+  <a href="../../3-phishing/index.html">Ch 2 · Bucky's Inbox (phishing) <span>3-phishing/</span></a>
+  <a href="../../4-coursework/index.html">Ch 3 · Bucky vs Coursework <span>4-coursework/</span></a>
+  <a href="../../5-narcan/index.html">Ch 4 · Bucky vs Drugs (Narcan) <span>5-narcan/</span></a>
+</main>
+</body>
+</html>
