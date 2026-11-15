@@ -170,13 +170,16 @@ class Boot extends Phaser.Scene {
     });
 
     // tail
-    const g = this.make.graphics({ add: false });
-    g.fillStyle(0x111111, 1); g.fillEllipse(14, 9, 28, 16);
-    g.fillStyle(0x4a3628, 1); g.fillEllipse(14, 9, 25, 13);
-    g.fillStyle(0x8a6a50, 1); g.fillEllipse(16, 8, 17, 8);
-    g.fillStyle(0xeee6d6, 1); g.fillEllipse(23, 8, 8, 8);
-    g.generateTexture('tail', 30, 18);
-    g.destroy();
+    const TAIL = [
+      '....KKKK....',
+      '..KKDMMLKK..',
+      '.KDDMMLLWWK.',
+      'KDDMMLLWWWWK',
+      'KDDDMMLWWWK.',
+      '.KKDDMMKKK..',
+      '...KKKK.....'];
+    const TC = { K: 0x1a1410, D: 0x4a3628, M: 0x7a5e48, L: 0xa88a6e, W: 0xeee6d6 };
+    pixelTex(this, 'tail', 12, 7, 2, p => TAIL.forEach((r, y) => [...r].forEach((c, x) => { if (TC[c]) p(x, y, 1, 1, TC[c]); })));
 
     makeChair(this, 'chair_o', 0xf28c28);
     makeChair(this, 'chair_y', 0xf2c81e);
