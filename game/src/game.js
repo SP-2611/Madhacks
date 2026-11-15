@@ -159,6 +159,11 @@ class Boot extends Phaser.Scene {
     P('p1', { shirt: 0xeb5757, hair: 0x5a3a1a });
     P('p2', { shirt: 0x27ae60, hair: 0x111111, skin: 0x8d5524 });
     P('couch', { shirt: 0x828282, hair: 0x9a6a3a });
+    P('miner', { shirt: 0x7a4a2a, hair: 0x3b2a1a, cap: 0x555555, pants: 0x3a3a3a });
+    pixelTex(this, 'pick', 9, 9, 2, p => {
+      for (let i = 0; i < 7; i++) p(1 + i, 8 - i, 1, 1, 0x7a5230);
+      p(4, 0, 5, 1, 0x9a9a9a); p(8, 1, 1, 4, 0x9a9a9a); p(3, 1, 1, 1, 0x9a9a9a);
+    });
 
     pixelTex(this, 'px', 1, 1, 2, p => p(0, 0, 1, 1, 0xffffff));
     pixelTex(this, 'can', 4, 7, 2, p => {
@@ -600,10 +605,127 @@ class Title extends Phaser.Scene {
       if (this.going) return; this.going = true;
       resetState(false);
       this.cameras.main.fadeOut(500);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Street'));
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Prologue'));
     };
     this.input.keyboard.once('keydown-ENTER', go);
     this.input.once('pointerdown', go);
+  }
+}
+
+// ======================================================================
+// Prologue: how Wisconsin's lead miners gave the state its nickname
+class Prologue extends Phaser.Scene {
+  constructor() { super('Prologue'); }
+  create() {
+    this.busy = false; this.leaving = false; this.objs = [];
+    this.g = this.add.graphics();
+    this.add.rectangle(W / 2, H - 78, W - 80, 116, 0x000000, 0.78).setStrokeStyle(2, 0xffffff).setDepth(10);
+    this.cap = this.add.text(70, H - 122, '', { fontFamily: FONT, fontSize: '22px', color: '#ffffff', wordWrap: { width: W - 140 }, lineSpacing: 6 }).setDepth(11).setResolution(2);
+    this.tag = this.add.text(50, 36, '', { fontFamily: FONT, fontSize: '20px', color: '#ffd166', fontStyle: 'bold', stroke: '#000', strokeThickness: 5 }).setDepth(11).setResolution(2);
+    this.add.text(W - 54, H - 28, 'ENTER next · ESC skip', { fontFamily: FONT, fontSize: '13px', color: '#aaaaaa' }).setOrigin(1, 1).setDepth(11).setResolution(2);
+
+    this.panels = [
+      { tag: 'Southwest Wisconsin · 1820s', draw: () => this.panelRush(),
+        text: 'Lead was found in the hills of southwest Wisconsin, and thousands of miners rushed in to dig for it.' },
+      { tag: 'Winter is coming', draw: () => this.panelHillside(false),
+        text: 'With no time to build cabins before winter, many miners dug their shelters straight into the hillsides.' },
+      { tag: 'Living like badgers', draw: () => this.panelHillside(true),
+        text: 'People joked that they lived like badgers in burrows. The miners got called "Badgers," and the name stuck.' },
+      { tag: 'Wisconsin Territory · 1830s', draw: () => this.panelState(),
+        text: 'The nickname spread, and Wisconsin became the Badger State. A badger still sits on the state flag today.' },
+      { tag: 'Madison · today', draw: () => this.panelToday(),
+        text: 'Badgers have always been diggers. Now it is your first weekend in Madison. Time to dig in.' }
+    ];
+    this.i = -1;
+    this.next();
+    const adv = () => this.next();
+    this.input.keyboard.on('keydown-ENTER', adv);
+    this.input.keyboard.on('keydown-E', adv);
+    this.input.on('pointerdown', adv);
+    this.input.keyboard.once('keydown-ESC', () => this.finish());
+  }
+  keep(o) { this.objs.push(o); return o; }
+  next() {
+    if (this.busy || this.leaving) return;
+    this.i++;
+    if (this.i >= this.panels.length) return this.finish();
+    this.busy = true;
+    const cam = this.cameras.main;
+    const show = () => {
+      if (this.leaving) return;
+      this.g.clear(); this.objs.forEach(o => o.destroy()); this.objs = [];
+      const p = this.panels[this.i];
+      this.tag.setText(p.tag); this.cap.setText(p.text); p.draw();
+      cam.fadeIn(350);
+      this.time.delayedCall(450, () => { this.busy = false; });
+    };
+    if (this.i === 0) show(); else { cam.fadeOut(250); cam.once('camerafadeoutcomplete', show); }
+  }
+  finish() {
+    if (this.leaving) return; this.leaving = true;
+    const cam = this.cameras.main;
+    cam.fadeOut(500, 0, 0, 0, (c, t) => { if (t === 1) this.scene.start('Street'); }, this);
+  }
+  sky(top, bottom) { this.g.fillGradientStyle(top, top, bottom, bottom, 1); this.g.fillRect(0, 0, W, H); }
+  hills(baseY, amp, color, freq, phase) {
+    this.g.fillStyle(color, 1);
+    for (let x = 0; x < W; x += 8) { const y = baseY + Math.round(Math.sin(x * freq + phase) * amp / 4) * 4; this.g.fillRect(x, y, 8, H - y); }
+  }
+  stars(n) { for (let i = 0; i < n; i++) this.g.fillStyle(0xffffff, (i % 3 + 1) / 3).fillRect((i * 97) % W, (i * 53) % 260, 2, 2); }
+  hole(x, y, lit) {
+    const g = this.g;
+    g.fillStyle(0x2a1a0c, 1); g.fillRect(x - 26, y - 44, 52, 46);
+    g.fillStyle(0x6b4a2a, 1); g.fillRect(x - 22, y - 40, 4, 42); g.fillRect(x + 18, y - 40, 4, 42); g.fillRect(x - 26, y - 44, 52, 6);
+    g.fillStyle(0x0d0805, 1); g.fillRect(x - 18, y - 34, 36, 36);
+    if (lit) {
+      const glow = this.keep(this.add.rectangle(x, y - 12, 14, 14, 0xffb347, 0.9));
+      this.tweens.add({ targets: glow, alpha: 0.45, duration: Phaser.Math.Between(300, 600), yoyo: true, repeat: -1 });
+    }
+  }
+  panelRush() {
+    this.sky(0x2a3b6e, 0xe08a5a);
+    this.g.fillStyle(0xffd27a, 1); this.g.fillCircle(720, 330, 44);
+    this.hills(330, 40, 0x4a6b3a, 0.008, 0);
+    this.hills(410, 24, 0x34502a, 0.015, 2);
+    [0, 1, 2].forEach(k => {
+      const m = this.keep(this.add.image(-40 - k * 90, 420 + (k % 2) * 14, 'miner').setScale(2.5));
+      this.tweens.add({ targets: m, x: W + 60, duration: 9000, delay: k * 300 });
+      this.tweens.add({ targets: m, y: m.y - 4, duration: 180, yoyo: true, repeat: -1 });
+    });
+  }
+  panelHillside(badger) {
+    this.sky(0x0b1026, 0x1d2a52); this.stars(40);
+    this.hills(250, 70, 0x5a4128, 0.006, 1);
+    this.hills(470, 10, 0x3d2a18, 0.02, 0);
+    this.hole(250, 400, true); this.hole(520, 372, true);
+    if (!badger) {
+      this.hole(770, 410, false);
+      this.keep(this.add.image(800, 440, 'miner').setScale(3));
+      const pk = this.keep(this.add.image(830, 438, 'pick').setScale(3).setOrigin(0.2, 0.8));
+      this.tweens.add({ targets: pk, angle: { from: -10, to: 50 }, duration: 350, yoyo: true, repeat: -1 });
+    } else {
+      this.keep(this.add.image(250, 420, 'miner').setScale(2.5));
+      this.g.fillStyle(0x2a1a0c, 1); this.g.fillEllipse(800, 470, 100, 48);
+      this.g.fillStyle(0x0d0805, 1); this.g.fillEllipse(800, 474, 78, 32);
+      const b = this.keep(this.add.sprite(600, 410, 'badger', 0).setScale(2.5).setDepth(1));
+      b.play('walk');
+      this.tweens.add({ targets: b, x: 700, duration: 1600, onComplete: () => { b.stop(); b.setFrame(0); } });
+    }
+  }
+  panelState() {
+    this.sky(0x2b5fa8, 0x8fbbe6);
+    this.hills(420, 30, 0x4f8a3c, 0.01, 0.5);
+    this.keep(this.add.text(W / 2, 140, 'THE BADGER STATE', { fontFamily: FONT, fontSize: '60px', color: '#ffd166', fontStyle: 'bold', stroke: '#1b2a4f', strokeThickness: 10 }).setOrigin(0.5).setResolution(2));
+    const b = this.keep(this.add.sprite(W / 2, 360, 'badger', 0).setScale(4));
+    this.tweens.add({ targets: b, y: 348, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+  panelToday() {
+    this.sky(0x0b1026, 0x3a0d1a); this.stars(50);
+    drawCapitol(this.g, W / 2, 470, 0.9, 0xe9e3d2, 0xb3ab96, 0xffd27a);
+    this.g.fillStyle(0x3d2714, 1); this.g.fillRect(0, 470, W, H - 470);
+    const b = this.keep(this.add.sprite(-40, 440, 'badger', 0).setScale(2.5).setDepth(1));
+    b.play('walk');
+    this.tweens.add({ targets: b, x: 260, duration: 2200, onComplete: () => { b.stop(); b.setFrame(0); } });
   }
 }
 
@@ -1669,5 +1791,5 @@ window.game = new Phaser.Game({
   pixelArt: true,
   physics: { default: 'arcade', arcade: { debug: false } },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [Boot, Title, Street, Party, Blackout, Terrace, Ending, UI]
+  scene: [Boot, Title, Prologue, Street, Party, Blackout, Terrace, Ending, UI]
 });
