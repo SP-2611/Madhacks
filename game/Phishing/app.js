@@ -65,7 +65,6 @@ function submitFindings() {
   const allFound = clues.every(([id]) => selected.has(id));
   const missed = clues.filter(([id]) => !selected.has(id));
   const count = selected.size;
-
   $('resultIcon').textContent = allFound ? '★' : '⚠';
   $('resultPanel').classList.toggle('fail', !allFound);
   $('resultKicker').textContent = allFound ? 'SCAM STOPPED' : 'INBOX INFECTED';
@@ -78,7 +77,6 @@ function submitFindings() {
     : missed.map(([, explanation]) => `<div><b>Missed clue:</b> ${explanation}</div>`).join('');
   $('againBtn').textContent = '↻ PLAY AGAIN';
   $('resultOverlay').classList.remove('hidden');
-
   document.querySelectorAll('.clue').forEach(el => {
     el.classList.remove('selected');
     if (clues.some(([id]) => id === el.dataset.clue)) el.classList.add('correct');
@@ -93,3 +91,27 @@ function submitFindings() {
 
 $('reportBtn').addEventListener('click', submitFindings);
 $('againBtn').addEventListener('click', () => window.location.reload());
+
+const introScreen = $('introScreen');
+const sendStatus = $('sendStatus');
+const sendButton = $('sendMassEmail');
+window.setTimeout(() => {
+  sendStatus.textContent = 'SENDING TO 193 BADGERS…';
+  sendButton.disabled = false;
+  sendButton.classList.add('send-ready');
+}, 1700);
+window.setTimeout(() => sendButton.click(), 2900);
+sendButton.addEventListener('click', () => {
+  if (sendButton.dataset.sent) return;
+  sendButton.dataset.sent = 'true';
+  sendButton.disabled = true;
+  sendButton.textContent = '✓ SENT!';
+  sendStatus.textContent = 'MESSAGE SENT TO THE WHOLE CAMPUS!';
+  $('introContinue').classList.remove('hidden');
+  $('introContinue').focus();
+});
+$('introContinue').addEventListener('click', () => {
+  introScreen.classList.add('intro-dismissed');
+  introScreen.setAttribute('aria-hidden', 'true');
+  $('mailIcon').focus();
+});
