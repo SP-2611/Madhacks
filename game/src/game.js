@@ -8,15 +8,17 @@ const UW_RED = 0xc5050c;
 // ---------- shared night state ----------
 const CHAR_D = 2000; // characters always draw above furniture
 const STEPS = [
-  { id: 'tail', label: 'Show off your tail' },
-  { id: 'kitchen', label: 'Dig in: beer or punch' },
-  { id: 'pong', label: 'Beer pong · 10:30 PM' },
-  { id: 'bathroom', label: 'Check on the bathroom' },
-  { id: 'balcony', label: 'Get some air' },
-  { id: 'shots', label: 'Shots · 12:00 AM' },
-  { id: 'jake', label: 'Find Jake' },
-  { id: 'end', label: '1:30 AM' }
+  { id: 'knock', label: 'Knock on the door', from: 'Tyler', msg: 'party\'s at my place on Langdon 🎉 knock when u get here!' },
+  { id: 'tail', label: 'Show off your tail', from: 'Jake', msg: 'yo show the kitchen your tail 🦡 (SPACE)' },
+  { id: 'kitchen', label: 'Dig in: beer or punch', from: 'Tyler', msg: 'drinks table is right by the door. beer or punch, dig in!' },
+  { id: 'pong', label: 'Beer pong · 10:30 PM', from: 'Brody', msg: 'PONG. living room. now 🏓' },
+  { id: 'bathroom', label: 'Check on the bathroom', from: 'Kayla', msg: 'someone\'s been in the bathroom forever... can u check on them?' },
+  { id: 'balcony', label: 'Get some air', from: 'Maya', msg: 'balcony is way chiller if u need air' },
+  { id: 'shots', label: 'Shots · 12:00 AM', from: 'Tyler', msg: 'SHOTS AT MIDNIGHT 🥃🥃' },
+  { id: 'jake', label: 'Find Jake', from: 'Maya', msg: 'hey have u seen Jake? he looked kinda out of it' },
+  { id: 'end', label: '1:30 AM', from: 'Tyler', msg: 'its 1:30 lol who\'s still here' }
 ];
+const REPLIES = ['done ✅', 'on it 👍', 'ok ok', 'got it', 'ya', 'kk'];
 const LESSONS = [
   { id: 'no', t: 'Saying no is normal. You don\'t owe anyone a reason.' },
   { id: 'pressure', t: 'Pressure can look like a compliment.' },
@@ -119,9 +121,9 @@ function drawCapitol(g, cx, gy, sc, body, shade, lit) {
   const R = (x, y, w, h, c) => { g.fillStyle(c, 1); g.fillRect(cx + x * sc, gy + y * sc, w * sc, h * sc); };
   // dome first, so the drum + colonnade cover its lower half
   g.fillStyle(body, 1); g.fillEllipse(cx, gy - 160 * sc, 92 * sc, 130 * sc);
-  g.fillStyle(shade, 1); g.fillEllipse(cx + 14 * sc, gy - 160 * sc, 50 * sc, 124 * sc);
-  g.lineStyle(Math.max(1, 1.5 * sc), shade, 0.8);
-  [-30, -15, 0, 15, 30].forEach(dx => g.lineBetween(cx + dx * sc, gy - 222 * sc, cx + dx * 1.45 * sc, gy - 160 * sc));
+  g.fillStyle(shade, 0.45); g.fillEllipse(cx + 16 * sc, gy - 158 * sc, 46 * sc, 116 * sc);
+  g.lineStyle(Math.max(1, 1.5 * sc), shade, 0.7);
+  [-28, -14, 0, 14, 28].forEach(dx => g.lineBetween(cx + dx * 0.2 * sc, gy - 218 * sc, cx + dx * sc, gy - 164 * sc));
   R(-8, -240, 16, 20, body); R(-8, -240, 5, 20, shade);       // lantern
   R(-2, -256, 4, 16, 0xd4af37); g.fillStyle(0xd4af37, 1); g.fillCircle(cx, gy - 258 * sc, 3.5 * sc); // gold statue
   R(-50, -162, 100, 10, body);                                  // ring under dome
@@ -165,6 +167,12 @@ class Boot extends Phaser.Scene {
     pixelTex(this, 'can2', 4, 7, 2, p => {
       p(0, 0, 4, 1, 0xcccccc); p(0, 1, 4, 6, 0x2d6cdf); p(0, 3, 4, 1, 0xdddddd);
     });
+    pixelTex(this, 'canOpen', 4, 7, 2, p => {
+      p(0, 0, 4, 1, 0xcccccc); p(1, 0, 1, 1, 0x222222); p(0, 1, 4, 6, 0xc0392b); p(0, 3, 4, 1, 0xffffff); p(0, 6, 4, 1, 0x8e2a20);
+    });
+    pixelTex(this, 'canOpen2', 4, 7, 2, p => {
+      p(0, 0, 4, 1, 0xcccccc); p(2, 0, 1, 1, 0x222222); p(0, 1, 4, 6, 0x2d6cdf); p(0, 3, 4, 1, 0xdddddd); p(0, 6, 4, 1, 0x1f4ea3);
+    });
     pixelTex(this, 'cup', 5, 6, 2, p => {
       p(0, 0, 5, 1, 0xffffff); p(0, 1, 5, 4, 0xd62828); p(1, 5, 3, 1, 0xd62828);
     });
@@ -207,6 +215,7 @@ class UI extends Phaser.Scene {
   create() {
     this.open = false;
     this.closedAt = 0;
+    this.objText = null; // recreated per scene (old one is destroyed on restart)
     this.vignette = this.add.image(W / 2, H / 2, 'vignette').setAlpha(0);
 
     // HUD
@@ -226,7 +235,7 @@ class UI extends Phaser.Scene {
     const bottom = this.add.text(mx - 26, my + mh, 'blackout', { fontFamily: FONT, fontSize: '10px', color: '#ff6b6b' }).setOrigin(1, 0.5).setResolution(2);
     this.meter = { x: mx, y: my, h: mh };
     this.status = this.add.text(16, 140, '', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 4, lineSpacing: 4 }).setResolution(2);
-    this.hint = this.add.text(W / 2, H - 14, 'WASD/Arrows: move   E: interact   SPACE: tail shake   P: phone', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5, 1).setResolution(2);
+    this.hint = this.add.text(W / 2, H - 14, 'WASD: move   E: interact   SPACE: tail shake   ↑: phone', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5, 1).setResolution(2);
     this.hud.add([clockBg, this.clock, meterBg, layers, this.meterFill, this.meterIcon, lbl, surf, bottom, this.status, this.hint]);
 
     this.toastText = this.add.text(W / 2, 130, '', { fontFamily: FONT, fontSize: '19px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 10, y: 6 }, align: 'center', wordWrap: { width: 640 } }).setOrigin(0.5).setAlpha(0).setResolution(2);
@@ -242,11 +251,13 @@ class UI extends Phaser.Scene {
     this.more = this.add.text(W - 44, H - 22, '▼ E', { fontFamily: FONT, fontSize: '15px', color: '#bbbbbb' }).setOrigin(1, 1).setResolution(2);
     this.timerBar = this.add.rectangle(30, H - 250, W - 60, 8, 0xffd166).setOrigin(0, 0.5);
     this.box.add([bg, this.who, this.body, this.more, this.timerBar]);
+    this.selBox = this.add.rectangle(46, 0, W - 92, 30, 0xffd166, 0.16).setOrigin(0, 0.5).setStrokeStyle(2, 0xffd166, 0.9).setVisible(false);
+    this.box.add(this.selBox);
+    this.sel = 0;
     this.choiceTexts = [];
     for (let i = 0; i < 4; i++) {
       const t = this.add.text(60, 0, '', { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: '#ffd166' }).setResolution(2).setInteractive({ useHandCursor: true });
-      t.on('pointerover', () => t.setColor('#ffffff'));
-      t.on('pointerout', () => t.setColor('#ffd166'));
+      t.on('pointerover', () => { if (this.mode === 'choice' && !this.typing) { this.sel = i; this.updateSel(); } });
       t.on('pointerdown', () => this.pick(i));
       this.choiceTexts.push(t);
       this.box.add(t);
@@ -267,43 +278,96 @@ class UI extends Phaser.Scene {
     g.fillStyle(0xf5f5f5, 1); g.fillRoundedRect(0, 0, PW, PH, 30);
     g.fillStyle(0x0a0a0d, 1); g.fillRoundedRect(6, 6, PW - 12, PH - 12, 25);
     g.fillStyle(0xf5f5f5, 1); g.fillRoundedRect(PW / 2 - 35, 18, 70, 8, 4);
-    g.fillStyle(0x16161b, 1); g.fillRect(20, 40, PW - 40, PH - 90);
+    g.fillStyle(0xffffff, 1); g.fillRect(20, 40, PW - 40, PH - 90);
     this.phone.add(g);
-    this.phoneClock = this.add.text(30, 48, '', { fontFamily: FONT, fontSize: '13px', color: '#ffffff' }).setResolution(2);
-    this.phoneTabs = ['Tonight', 'Learned'].map((t, i) => this.add.text(34 + i * 120, 74, t, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#ffffff' }).setResolution(2));
-    this.phoneLine = this.add.rectangle(34, 98, 90, 3, UW_RED).setOrigin(0, 0.5);
-    this.phoneBody = this.add.text(30, 112, '', { fontFamily: FONT, fontSize: '15px', color: '#ffffff', lineSpacing: 7, wordWrap: { width: PW - 64 } }).setResolution(2);
-    this.phoneHint = this.add.text(PW / 2, PH - 34, '← → tabs · P / Esc close', { fontFamily: FONT, fontSize: '11px', color: '#888888' }).setOrigin(0.5).setResolution(2);
-    this.phone.add([this.phoneClock, ...this.phoneTabs, this.phoneLine, this.phoneBody, this.phoneHint]);
+    this.phoneClock = this.add.text(30, 48, '', { fontFamily: FONT, fontSize: '13px', color: '#000000' }).setResolution(2);
+    this.phoneTabs = ['Messages', 'Learned'].map((t, i) => this.add.text(34 + i * 130, 70, t, { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#ffffff' }).setResolution(2));
+    this.phoneLine = this.add.rectangle(34, 93, 96, 3, 0x34c759).setOrigin(0, 0.5);
+    // iMessage-style chat
+    this.chatHead = this.add.container(0, 0);
+    const hg = this.add.graphics();
+    hg.fillStyle(0xf6f6f6, 1); hg.fillRect(20, 100, PW - 40, 52);
+    hg.fillStyle(0xd1d1d6, 1); hg.fillRect(20, 152, PW - 40, 1);
+    hg.fillStyle(0xc7c7cc, 1); hg.fillCircle(PW / 2, 116, 11);
+    this.chatHead.add([hg,
+      this.add.text(PW / 2, 116, '🦡', { fontSize: '13px' }).setOrigin(0.5).setResolution(2),
+      this.add.text(PW / 2, 138, 'Langdon St Party', { fontFamily: FONT, fontSize: '12px', color: '#000000' }).setOrigin(0.5).setResolution(2),
+      this.add.text(34, 116, '‹', { fontFamily: FONT, fontSize: '24px', color: '#34c759' }).setOrigin(0, 0.5).setResolution(2)]);
+    this.chat = this.add.container(0, 0);
+    const mask = this.make.graphics({ add: false });
+    this.chatMaskG = mask;
+    this.phoneBody = this.add.text(30, 106, '', { fontFamily: FONT, fontSize: '15px', color: '#111111', lineSpacing: 7, wordWrap: { width: PW - 64 } }).setResolution(2);
+    this.phoneHint = this.add.text(PW / 2, PH - 34, '← → tabs · Esc close', { fontFamily: FONT, fontSize: '11px', color: '#888888' }).setOrigin(0.5).setResolution(2);
+    this.phone.add([this.phoneClock, ...this.phoneTabs, this.phoneLine, this.chatHead, this.chat, this.phoneBody, this.phoneHint]);
     // small phone button on the HUD
-    this.phoneBtn = this.add.text(16, 66, '📱 P: phone', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 8, y: 5 } }).setResolution(2);
+    this.phoneBtn = this.add.text(16, 66, '📱 ↑ phone', { fontFamily: FONT, fontSize: '16px', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 8, y: 5 } }).setResolution(2);
     this.phoneBadge = this.add.circle(140, 68, 7, UW_RED).setVisible(false);
     this.hud.add([this.phoneBtn, this.phoneBadge]);
     this.phonePH = PH;
   }
   drawPhone() {
     this.phoneClock.setText(timeStr(S.minutes) + '        ▮▮▮ 82%');
-    this.phoneTabs.forEach((t, i) => t.setColor(i === this.phoneTab ? '#ffffff' : '#777777'));
-    this.phoneLine.x = 34 + this.phoneTab * 120;
+    this.phoneTabs.forEach((t, i) => t.setColor(i === this.phoneTab ? '#000000' : '#aaaaaa'));
+    this.phoneLine.x = 34 + this.phoneTab * 130;
+    const chatTab = this.phoneTab === 0;
+    this.chatHead.setVisible(chatTab);
+    this.chat.setVisible(chatTab);
+    this.phoneBody.setVisible(!chatTab);
     let out = '';
-    if (this.phoneTab === 0) {
-      out = 'Help Bucky get through the night.\n\n';
-      let reachedCurrent = false;
-      STEPS.forEach(st => {
-        if (S.done.includes(st.id)) out += '✓ ' + st.label + '\n';
-        else if (st.id === S.current) { out += '▶ ' + st.label + '\n'; reachedCurrent = true; }
-        else out += (reachedCurrent || !S.current ? '○ ' : '○ ') + st.label + '\n';
-      });
-      if (S.rewind) out += '\n⛏ Digging back. Find your tail.';
-    } else {
+    if (chatTab) { this.drawChat(); return; } else {
       out = `What you're learning (${LEARNED.size}/${LESSONS.length})\n\n`;
       LESSONS.forEach(l => { out += LEARNED.has(l.id) ? '★ ' + l.t + '\n' : '🔒 ???\n'; });
     }
     this.phoneBody.setText(out);
   }
+  drawChat() {
+    this.chat.removeAll(true);
+    const PW = 300, left = 30, right = PW - 30, maxW = 170;
+    const items = [];
+    if (S.rewind) items.push({ sys: '⛏ digging back through the night' });
+    STEPS.forEach((st, i) => {
+      const sent = S.done.includes(st.id) || st.id === S.current;
+      if (!sent) return;
+      items.push({ from: st.from, text: st.msg, cur: st.id === S.current });
+      if (S.done.includes(st.id)) items.push({ me: true, text: REPLIES[i % REPLIES.length] });
+    });
+    // lay out bottom-up so the newest message sits above the hint
+    let y = 486;
+    const made = [];
+    for (let i = items.length - 1; i >= 0 && y > 165; i--) {
+      const it = items[i];
+      if (it.sys) {
+        const t = this.add.text(PW / 2, 0, it.sys, { fontFamily: FONT, fontSize: '10px', color: '#8e8e93' }).setOrigin(0.5, 1).setResolution(2);
+        t.y = y; y -= 22; made.push(t); continue;
+      }
+      const t = this.add.text(0, 0, it.text, { fontFamily: FONT, fontSize: '12px', color: it.me ? '#ffffff' : '#000000', wordWrap: { width: maxW } }).setResolution(2);
+      const bw = t.width + 22, bh = t.height + 14;
+      const bx = it.me ? right - bw : left;
+      const by = y - bh;
+      const g = this.add.graphics();
+      g.fillStyle(it.me ? 0x34c759 : 0xe9e9eb, 1);
+      g.fillRoundedRect(bx, by, bw, bh, 14);
+      // little tail on the bubble
+      if (it.me) g.fillTriangle(right - 8, by + bh - 10, right + 4, by + bh, right - 16, by + bh);
+      else g.fillTriangle(left + 8, by + bh - 10, left - 4, by + bh, left + 16, by + bh);
+      t.setPosition(bx + 11, by + 7);
+      made.push(g, t);
+      if (it.cur) {
+        const d = this.add.text(left + 4, y + 2, 'new mission', { fontFamily: FONT, fontSize: '9px', color: '#34c759', fontStyle: 'bold' }).setResolution(2);
+        made.push(d);
+      }
+      y = by - 6;
+      if (!it.me) {
+        const n = this.add.text(left + 8, y, it.from, { fontFamily: FONT, fontSize: '9px', color: '#8e8e93' }).setOrigin(0, 1).setResolution(2);
+        made.push(n); y -= 14;
+      }
+      y -= 6;
+    }
+    this.chat.add(made);
+  }
   togglePhone(v) {
     if (v === undefined) v = !this.phoneOpen;
-    if (v && (this.open || !this.hud.visible)) return;
+    if (v && (this.open || !(this.hud.visible || this.phoneAllowed))) return;
     this.phoneOpen = v;
     if (v) { this.phoneBadge.setVisible(false); this.drawPhone(); }
     this.tweens.killTweensOf([this.phone, this.phoneDim]);
@@ -357,11 +421,20 @@ class UI extends Phaser.Scene {
     this.showBox();
     this.nextLine();
   }
+  updateSel() {
+    const shown = this.choiceTexts.filter(t => t.visible);
+    if (!shown.length) { this.selBox.setVisible(false); return; }
+    this.sel = Phaser.Math.Clamp(this.sel, 0, shown.length - 1);
+    shown.forEach((t, i) => t.setColor(i === this.sel ? '#ffffff' : '#c9a24a'));
+    const t = shown[this.sel];
+    this.selBox.setVisible(true).setY(t.y + t.height / 2);
+  }
   showBox() {
     if (!this.open) { this.tweens.killTweensOf(this.dim); this.tweens.add({ targets: this.dim, alpha: 0.4, duration: 250 }); }
     this.open = true;
     this.box.setVisible(true);
     this.choiceTexts.forEach(t => t.setVisible(false));
+    if (this.selBox) this.selBox.setVisible(false);
     this.timerBar.setVisible(false);
   }
   setSpeaker(who) {
@@ -393,7 +466,7 @@ class UI extends Phaser.Scene {
     const l = this.queue.shift();
     this.setSpeaker(l.who);
     if (this.speakerCb) this.speakerCb(l.who);
-    this.more.setVisible(true);
+    this.more.setText('▼ E').setVisible(true);
     this.typeText(l.text);
   }
   choose(o) {
@@ -401,7 +474,7 @@ class UI extends Phaser.Scene {
     this.showBox();
     this.setSpeaker(o.who);
     if (this.speakerCb) this.speakerCb(o.who);
-    this.more.setVisible(false);
+    this.more.setText('↑↓ select · Enter').setVisible(true);
     let choices = o.choices.slice();
     if (S.holdingWater && o.waterOk) {
       choices.splice(1, 0, { label: '🥤 "Already got a drink." (it\'s water)', fn: o.waterOk });
@@ -419,6 +492,8 @@ class UI extends Phaser.Scene {
         let label = S.depth >= 8 ? scramble(c.label) : c.label;
         this.choiceTexts[i].setText(`${i + 1}. ${label}`).setVisible(true).setY(H - 146 + i * 31);
       });
+      this.sel = 0;
+      this.updateSel();
       if (lost) this.toast("You can't find the words to say no.");
       if (o.timer) {
         this.timerBar.setVisible(true).width = W - 60;
@@ -448,15 +523,20 @@ class UI extends Phaser.Scene {
   onKey(e) {
     if (!this.open) {
       const k = e.key;
-      if (k === 'p' || k === 'P' || k === 'Tab') { if (e.preventDefault) e.preventDefault(); this.togglePhone(); return; }
-      if (this.phoneOpen) {
-        if (k === 'Escape') this.togglePhone(false);
-        if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') { this.phoneTab = 1 - this.phoneTab; this.drawPhone(); }
-      }
+      if (!this.phoneOpen) { if (k === 'ArrowUp') this.togglePhone(true); return; }
+      if (k === 'Escape' || k === 'Backspace') this.togglePhone(false);
+      if (k === 'ArrowLeft' || k === 'ArrowRight') { this.phoneTab = 1 - this.phoneTab; this.drawPhone(); }
       return;
     }
     const k = e.key;
-    if (this.mode === 'choice' && !this.typing && ['1', '2', '3', '4'].includes(k)) { this.pick(+k - 1); return; }
+    if (this.mode === 'choice' && !this.typing) {
+      const n = this.choices.length;
+      if (k === 'ArrowUp' || k === 'w' || k === 'W') { this.sel = (this.sel - 1 + n) % n; this.updateSel(); return; }
+      if (k === 'ArrowDown' || k === 's' || k === 'S') { this.sel = (this.sel + 1) % n; this.updateSel(); return; }
+      if (['1', '2', '3', '4'].includes(k)) { this.pick(+k - 1); return; }
+      if (['e', 'E', ' ', 'Enter'].includes(k)) { this.pick(this.sel); return; }
+      return;
+    }
     if (['e', 'E', ' ', 'Enter'].includes(k)) this.advance();
   }
   update(t, dt) {
@@ -472,7 +552,7 @@ class UI extends Phaser.Scene {
 function withUI(scene, cb) {
   scene.scene.stop('UI');
   const ui = scene.scene.get('UI');
-  ui.speakerCb = null; ui.closeCb = null;
+  ui.speakerCb = null; ui.closeCb = null; ui.phoneAllowed = false;
   ui.events.once(Phaser.Scenes.Events.CREATE, () => cb(ui));
   scene.scene.launch('UI');
 }
@@ -496,10 +576,10 @@ class Title extends Phaser.Scene {
     g.fillStyle(0x1b2a4f, 1); for (let x = 0; x < W; x += 6) g.fillRect(x, 476 + Math.sin(x / 13) * 2, 3, 1);
     g.fillStyle(0x10162b, 1);
     [[40, 60], [110, 90], [190, 50], [700, 80], [780, 110], [860, 60], [250, 40], [640, 45]].forEach(([x, h]) => g.fillRect(x, 470 - h, 50, h));
-    drawCapitol(g, W / 2, 476, 1.05, 0xe9e3d2, 0xb3ab96, 0xffd27a);
     // ground in front
     g.fillStyle(0x3d2714, 1); g.fillEllipse(W / 2, H + 40, W * 1.4, 260);
     g.fillStyle(0x5c3d22, 1); g.fillEllipse(W / 2, H + 60, W * 1.2, 220);
+    drawCapitol(this.add.graphics(), W / 2, 484, 0.92, 0xe9e3d2, 0xb3ab96, 0xffd27a);
     this.add.text(W / 2, 214, 'Madison, Wisconsin', { fontFamily: FONT, fontSize: '14px', color: '#9aa4c8' }).setOrigin(0.5).setResolution(2);
 
     this.add.text(W / 2, 62, 'TALE OF THE', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setResolution(2);
@@ -514,7 +594,7 @@ class Title extends Phaser.Scene {
 
     const start = this.add.text(W / 2, 560, 'Press ENTER or click to start', { fontFamily: FONT, fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setResolution(2);
     this.tweens.add({ targets: start, alpha: 0.2, duration: 700, yoyo: true, repeat: -1 });
-    this.add.text(W / 2, 600, 'WASD/Arrows move · E interact · SPACE tail shake · P phone · 1-4 choose', { fontFamily: FONT, fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);
+    this.add.text(W / 2, 600, 'WASD move · E interact · SPACE tail shake · ↑ phone · ↑↓ + Enter choose', { fontFamily: FONT, fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);
 
     const go = () => {
       if (this.going) return; this.going = true;
@@ -536,7 +616,7 @@ class Walk extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.tail = this.add.image(x, y, 'tail').setOrigin(0.1, 0.5);
     this.ghost = this.add.sprite(x, y, 'badger', 0).setAlpha(0);
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,T');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,SPACE');
     this.shakeUntil = 0;
     this.vel = new Phaser.Math.Vector2();
   }
@@ -565,10 +645,10 @@ class Walk extends Phaser.Scene {
     const k = this.keys, p = this.player;
     let dx = 0, dy = 0;
     if (!this.uiBusy() && !this.frozen) {
-      if (k.A.isDown || k.LEFT.isDown) dx -= 1;
-      if (k.D.isDown || k.RIGHT.isDown) dx += 1;
-      if (k.W.isDown || k.UP.isDown) dy -= 1;
-      if (k.S.isDown || k.DOWN.isDown) dy += 1;
+      if (k.A.isDown) dx -= 1;
+      if (k.D.isDown) dx += 1;
+      if (k.W.isDown) dy -= 1;
+      if (k.S.isDown) dy += 1;
     }
     if (S.depth >= 9) { dx = -dx; dy = -dy; }
     const speed = 165;
@@ -688,15 +768,39 @@ class Street extends Walk {
       ui.banner('Langdon St · 9:00 PM');
       this.time.delayedCall(1800, () => ui.lines([
         { who: 'JAKE', text: "That's the place! You can literally hear it from here." },
-        { who: 'JAKE', text: 'Come on, walk up and knock. (WASD / Arrow keys)' }
-      ]));
+        { who: 'JAKE', text: 'Come on, let\'s go. (WASD to walk)' }
+      ], () => { this.tut = 'move'; this.tutX = this.player.x; ui.objective('Walk toward the party (WASD)'); }));
     });
+  }
+  updateTutorial(time) {
+    const ui = this.ui;
+    if (this.tut === 'move' && Math.abs(this.player.x - this.tutX) > 90) {
+      this.tut = 'ring';
+      S.current = 'knock';
+      ui.phoneAllowed = true;
+      ui.objective('Your phone is buzzing! Press ↑ to pull it out');
+      this.nextBuzz = 0;
+    }
+    if (this.tut === 'ring') {
+      if (time > this.nextBuzz) {
+        this.nextBuzz = time + 1600;
+        this.floatText(this.player.x + 18, this.player.y - 40, '📳 bzzz', '#ffffff');
+        this.cameras.main.shake(120, 0.002);
+      }
+      if (ui.phoneOpen) { this.tut = 'read'; ui.objective('Tyler texted you. Press Esc to put the phone away'); }
+    }
+    if (this.tut === 'read' && !ui.phoneOpen) {
+      this.tut = 'done';
+      ui.objective('Walk up to the party house and knock (E)');
+      ui.toast('Press ↑ anytime to check your phone.', 3000);
+    }
   }
   update(time) {
     if (!this.player) return;
     this.movePlayer(time);
+    if (this.ui) this.updateTutorial(time);
     this.followNPC(this.jake, { x: this.player.x - 40, y: this.player.y }, 45, 150, time);
-    const near = Math.abs(this.player.x - 1070) < 90 && !this.knocked;
+    const near = Math.abs(this.player.x - 1070) < 90 && !this.knocked && this.tut === 'done';
     this.prompt.setVisible(near && !this.uiBusy()).setPosition(1070, 200);
     if (near && Phaser.Input.Keyboard.JustDown(this.keys.E) && !this.uiBusy()) this.knock();
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && !this.uiBusy()) {
@@ -707,6 +811,7 @@ class Street extends Walk {
   speakerTarget(who) { return { JAKE: this.jake, TYLER: this.tyler || { x: 1070, y: 290 } }[who] || this.player; }
   knock() {
     this.knocked = true;
+    this.ui.objective('');
     this.ui.lines([{ who: '', text: '*knock knock*' }], () => {
       this.door.setFillStyle(0xffe9a8);
       const tyler = this.tyler = this.add.sprite(1070, 262, 'tyler').setDepth(-70);
@@ -734,7 +839,7 @@ class Party extends Walk {
     this.pending = [];
     this.physics.world.setBounds(0, 0, WW, WH);
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, WW, WH).setZoom(1.4).fadeIn(600);
+    cam.setBounds(20, 340, 880, 540).setZoom(1.4).fadeIn(600);
     this.solids = [];
 
     this.drawFloors();
@@ -742,7 +847,7 @@ class Party extends Walk {
     this.buildFurniture();
     this.mess = this.add.group();
 
-    this.setupPlayer(340, 790);
+    this.setupPlayer(220, 805);
     this.physics.add.collider(this.player, this.solids);
     cam.startFollow(this.player, true, 0.12, 0.12);
 
@@ -763,10 +868,13 @@ class Party extends Walk {
           { who: '', text: 'You dig back through the night. The memories come back one by one.' },
           { who: 'TYLER', text: 'Hey, you made it! Just dig in — chips and drinks are right here!' },
           { who: '', text: 'This time, choose differently. Find out where your tail went.' }
-        ], () => this.setStep('tail')));
+        ], () => { this.setStep('tail'); this.time.delayedCall(500, () => this.ui.togglePhone(true)); }));
       } else {
         ui.banner('9:00 PM');
-        this.time.delayedCall(1800, () => this.setStep('tail'));
+        this.time.delayedCall(1800, () => {
+          this.setStep('tail');
+          this.time.delayedCall(400, () => { this.ui.togglePhone(true); this.ui.toast('Your phone buzzes. Esc to put it away, ↑ to check it again.', 4000); });
+        });
       }
     });
 
@@ -780,27 +888,32 @@ class Party extends Walk {
   drawFloors() {
     const g = this.add.graphics().setDepth(-1000);
     g.fillStyle(0x0b0b10, 1); g.fillRect(0, 0, this.WW, this.WH);
-    for (let y = 300; y < 840; y += 30) for (let x = 60; x < 640; x += 30) {
+    // night yard outside the house
+    g.fillStyle(0x10180f, 1); g.fillRect(0, 0, this.WW, this.WH);
+    for (let i = 0; i < 160; i++) g.fillStyle(0x1c2a1a, 1).fillRect(Math.random() * this.WW, Math.random() * this.WH, 3, 2);
+    for (let y = 540; y < 840; y += 30) for (let x = 60; x < 360; x += 30) {
       g.fillStyle(((x + y) / 30) % 2 ? 0xd9d4c7 : 0xb8b2a3, 1); g.fillRect(x, y, 30, 30);
     }
-    g.fillStyle(0x4a4038, 1); g.fillRect(60, 60, 200, 220);
-    g.lineStyle(2, 0x2e2722, 1); for (let x = 60; x < 260; x += 16) g.lineBetween(x, 60, x, 280);
-    for (let y = 60; y < 280; y += 20) for (let x = 280; x < 640; x += 20) {
+    g.fillStyle(0x4a4038, 1); g.fillRect(60, 380, 140, 140);
+    g.lineStyle(2, 0x2e2722, 1); for (let x = 60; x < 200; x += 16) g.lineBetween(x, 380, x, 520);
+    for (let y = 380; y < 520; y += 20) for (let x = 220; x < 360; x += 20) {
       g.fillStyle(((x + y) / 20) % 2 ? 0x9ec9d6 : 0x86b3c2, 1); g.fillRect(x, y, 20, 20);
     }
-    g.fillStyle(0x7a5233, 1); g.fillRect(660, 60, 680, 780);
+    g.fillStyle(0x7a5233, 1); g.fillRect(380, 440, 480, 400);
     g.lineStyle(1, 0x5f3f27, 1);
-    for (let y = 60; y < 840; y += 20) g.lineBetween(660, y, 1340, y);
-    for (let y = 60, r = 0; y < 840; y += 20, r++) for (let x = 660 + (r % 2) * 60; x < 1340; x += 120) g.lineBetween(x, y, x, y + 20);
-    g.fillStyle(0x7d1e2c, 1); g.fillRect(760, 420, 460, 320);
-    g.lineStyle(4, 0xd9b45a, 1); g.strokeRect(774, 434, 432, 292);
-    g.fillStyle(0x3a3a3a, 1); g.fillRect(310, 806, 60, 30);
+    for (let y = 440; y < 840; y += 20) g.lineBetween(380, y, 860, y);
+    for (let y = 440, r = 0; y < 840; y += 20, r++) for (let x = 380 + (r % 2) * 60; x < 860; x += 120) g.lineBetween(x, y, x, y + 20);
+    g.fillStyle(0x7d1e2c, 1); g.fillRect(440, 520, 360, 240);
+    g.lineStyle(4, 0xd9b45a, 1); g.strokeRect(452, 532, 336, 216);
+    g.fillStyle(0x3a3a3a, 1); g.fillRect(190, 806, 60, 30);
     this.lights = [];
     const cols = [0xff3da5, 0x3dd6ff, 0xffe23d, 0x8a3dff, 0x3dff8a];
-    for (let i = 0; i < 9; i++) {
-      const c = this.add.circle(Phaser.Math.Between(820, 1160), Phaser.Math.Between(470, 700), Phaser.Math.Between(30, 50), cols[i % 5], 0.22).setDepth(-900);
+    // big party lights sweeping the living room (clipped to the room)
+    const lightMask = this.make.graphics({ add: false }).fillStyle(0xffffff).fillRect(380, 440, 480, 400).createGeometryMask();
+    for (let i = 0; i < 8; i++) {
+      const c = this.add.circle(Phaser.Math.Between(440, 800), Phaser.Math.Between(490, 790), Phaser.Math.Between(80, 120), cols[i % 5], 0.3).setDepth(-900).setMask(lightMask);
       this.lights.push(c);
-      this.tweens.add({ targets: c, alpha: 0.03, x: c.x + Phaser.Math.Between(-50, 50), duration: Phaser.Math.Between(700, 1300), yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: c, alpha: 0.05, x: c.x + Phaser.Math.Between(-90, 90), y: c.y + Phaser.Math.Between(-60, 60), duration: Phaser.Math.Between(800, 1500), yoyo: true, repeat: -1 });
     }
   }
 
@@ -817,40 +930,43 @@ class Party extends Walk {
     g.fillStyle(0xbfae90, 1); g.fillRect(x, y + h - 4, w, 4);
   }
   buildWalls() {
-    this.wall(40, 40, 1320, 20);
-    this.wall(40, 840, 260, 20); this.wall(380, 840, 980, 20);
-    this.wall(40, 40, 20, 820); this.wall(1340, 40, 20, 820);
-    this.solid(300, 860, 80, 20); // front door: no leaving
-    // kitchen top wall: balcony opening (120-200) + bathroom door (440-520)
-    this.wall(40, 280, 80, 20); this.wall(200, 280, 240, 20); this.wall(520, 280, 140, 20);
-    this.solid(440, 280, 80, 20);
-    const plain = this.add.graphics().setDepth(300);
-    plain.fillStyle(0xe8dcc4, 1); plain.fillRect(440, 280, 80, 20);
-    plain.fillStyle(0xbfae90, 1); plain.fillRect(440, 296, 80, 4);
-    this.bathDoor = this.add.graphics().setDepth(301).setAlpha(0);
-    this.bathDoor.fillStyle(0x6b4423, 1); this.bathDoor.fillRect(440, 280, 80, 20);
-    this.bathDoor.fillStyle(0xd4af37, 1); this.bathDoor.fillCircle(506, 290, 3);
-    this.bathLabel = this.add.text(470, 290, 'WC', { fontFamily: FONT, fontSize: '10px', color: '#f0e0c0' }).setOrigin(0.5).setDepth(302).setResolution(3).setAlpha(0);
-    this.wall(260, 40, 20, 240); // balcony | bathroom
-    // kitchen | living room, doorway 500-620 blocked until revealed
-    this.wall(640, 40, 20, 460); this.wall(640, 620, 20, 240);
-    this.gate = this.solid(640, 500, 20, 120);
+    // outer shell
+    this.wall(360, 420, 520, 20);                 // top (living room)
+    this.wall(40, 360, 320, 20);                  // top of balcony + bathroom
+    this.wall(40, 360, 20, 500);                  // left
+    this.wall(860, 420, 20, 440);                 // right
+    this.wall(40, 840, 140, 20); this.wall(260, 840, 620, 20); // bottom, front door 180-260
+    this.solid(180, 860, 80, 20);                 // front door: no leaving
+    // kitchen top wall: balcony opening (90-150) + bathroom door (230-290)
+    this.wall(40, 520, 50, 20); this.wall(150, 520, 80, 20); this.wall(290, 520, 70, 20);
+    this.solid(230, 520, 60, 20);
+    const plain = this.add.graphics().setDepth(540);
+    plain.fillStyle(0xe8dcc4, 1); plain.fillRect(230, 520, 60, 20);
+    plain.fillStyle(0xbfae90, 1); plain.fillRect(230, 536, 60, 4);
+    this.bathDoor = this.add.graphics().setDepth(541).setAlpha(0);
+    this.bathDoor.fillStyle(0x6b4423, 1); this.bathDoor.fillRect(230, 520, 60, 20);
+    this.bathDoor.fillStyle(0xd4af37, 1); this.bathDoor.fillCircle(282, 530, 3);
+    this.bathLabel = this.add.text(255, 530, 'WC', { fontFamily: FONT, fontSize: '10px', color: '#f0e0c0' }).setOrigin(0.5).setDepth(542).setResolution(3).setAlpha(0);
+    this.wall(200, 380, 20, 140); // balcony | bathroom
+    // kitchen | living room, doorway 640-740 blocked until revealed
+    this.wall(360, 360, 20, 280); this.wall(360, 740, 20, 120);
+    this.gate = this.solid(360, 640, 20, 100);
     // balcony railing + string lights
-    const rail = this.add.graphics().setDepth(70);
+    const rail = this.add.graphics().setDepth(400);
     rail.fillStyle(0x222222, 1);
-    for (let x = 64; x < 258; x += 14) rail.fillRect(x, 62, 10, 4);
-    for (let y = 64; y < 278; y += 14) rail.fillRect(62, y, 4, 10);
-    for (let x = 74; x < 256; x += 18) {
-      const bl = this.add.circle(x, 78 + Math.sin(x / 20) * 4, 3, 0xffe9a8).setDepth(80);
+    for (let x = 64; x < 198; x += 14) rail.fillRect(x, 382, 10, 4);
+    for (let y = 384; y < 518; y += 14) rail.fillRect(62, y, 4, 10);
+    for (let x = 74; x < 196; x += 18) {
+      const bl = this.add.circle(x, 396 + Math.sin(x / 20) * 3, 3, 0xffe9a8).setDepth(401);
       this.tweens.add({ targets: bl, alpha: 0.4, duration: Phaser.Math.Between(500, 1200), yoyo: true, repeat: -1 });
     }
   }
   buildFog() {
     this.fog = [
-      this.add.rectangle(660, 40, 700, 840, 0x000000, 1).setOrigin(0).setDepth(5900),
-      this.add.rectangle(280, 40, 360, 240, 0x000000, 1).setOrigin(0).setDepth(5900)
+      this.add.rectangle(380, 420, 500, 440, 0x000000, 1).setOrigin(0).setDepth(5900),
+      this.add.rectangle(220, 380, 140, 140, 0x000000, 1).setOrigin(0).setDepth(5900)
     ];
-    this.fogLabel = this.add.text(1000, 450, '♪ the living room is packed ♪', { fontFamily: FONT, fontSize: '14px', color: '#555566' }).setOrigin(0.5).setDepth(5901).setResolution(3);
+    this.fogLabel = this.add.text(620, 640, '♪ the living room is packed ♪', { fontFamily: FONT, fontSize: '14px', color: '#555566' }).setOrigin(0.5).setDepth(5901).setResolution(3);
   }
   reveal() {
     if (this.revealed) return;
@@ -868,110 +984,105 @@ class Party extends Walk {
     return g;
   }
   buildFurniture() {
-    // counter: beer stack, sink, water jug
-    this.furn(220, 300, 200, 48, g => {
-      g.fillStyle(0x5b4636, 1); g.fillRect(220, 300, 200, 48);
-      g.fillStyle(0x9a9286, 1); g.fillRect(220, 300, 200, 36);
-      g.fillStyle(0x6f7f8a, 1); g.fillRect(300, 305, 70, 26);
-      g.fillStyle(0x4c5a63, 1); g.fillRect(305, 309, 60, 18);
+    // counter + sink along the left wall (snacks/water appear later)
+    this.furn(60, 560, 40, 130, g => {
+      g.fillStyle(0x5b4636, 1); g.fillRect(60, 560, 40, 130);
+      g.fillStyle(0x9a9286, 1); g.fillRect(60, 560, 34, 130);
+      g.fillStyle(0x6f7f8a, 1); g.fillRect(63, 612, 26, 40);
+      g.fillStyle(0x4c5a63, 1); g.fillRect(66, 616, 20, 32);
     });
-    // snacks + water only show up once the house opens
-    const later = this.add.graphics().setDepth(349).setAlpha(0);
-    later.fillStyle(0x3d9be9, 1); later.fillRect(388, 302, 22, 30);
-    later.fillStyle(0xbfe3ff, 1); later.fillRect(391, 306, 16, 12);
-    later.fillStyle(0xf2f2f2, 1); later.fillCircle(256, 318, 15);
-    later.fillStyle(0xf2c14e, 1); for (let i = 0; i < 9; i++) later.fillCircle(250 + (i % 3) * 6, 313 + Math.floor(i / 3) * 5, 3);
+    const later = this.add.graphics().setDepth(691).setAlpha(0);
+    later.fillStyle(0x3d9be9, 1); later.fillRect(66, 568, 20, 28);
+    later.fillStyle(0xbfe3ff, 1); later.fillRect(69, 572, 14, 10);
+    later.fillStyle(0xf2f2f2, 1); later.fillCircle(77, 672, 12);
+    later.fillStyle(0xf2c14e, 1); for (let i = 0; i < 9; i++) later.fillCircle(72 + (i % 3) * 5, 667 + Math.floor(i / 3) * 5, 2.5);
     this.laterItems = [later];
-    // fridge + beer cases
-    this.furn(560, 300, 60, 74, g => {
-      g.fillStyle(0xf2f2f2, 1); g.fillRect(560, 300, 60, 74);
-      g.fillStyle(0xcfcfcf, 1); g.fillRect(560, 330, 60, 3); g.fillRect(608, 308, 4, 16);
+    // fridge (top-right corner)
+    this.furn(300, 542, 56, 66, g => {
+      g.fillStyle(0xf2f2f2, 1); g.fillRect(300, 542, 56, 66);
+      g.fillStyle(0xcfcfcf, 1); g.fillRect(300, 568, 56, 3); g.fillRect(346, 550, 4, 14);
     });
-    this.furn(495, 312, 52, 42, g => {
-      g.fillStyle(0x8a5a3a, 1); g.fillRect(495, 312, 52, 42);
-      g.fillStyle(0xb5835a, 1); g.fillRect(497, 314, 48, 18); g.fillRect(497, 334, 48, 18);
-      g.fillStyle(UW_RED, 1); g.fillRect(510, 318, 22, 8); g.fillRect(510, 338, 22, 8);
-    });
-    // drinks table right inside the door: beer stack (left) + punch bowl (right)
-    this.furn(240, 520, 190, 74, g => {
-      g.fillStyle(0x4a3020, 1); g.fillRect(240, 520, 190, 74);
-      g.fillStyle(0x8a5a3a, 1); g.fillRect(240, 520, 190, 60);
-      g.fillStyle(0xdddddd, 0.8); g.fillCircle(385, 550, 21);
-      g.fillStyle(0xd7263d, 0.85); g.fillCircle(385, 550, 17);
+    // drinks table in the middle: beer stack (left) + punch bowl (right)
+    this.furn(140, 650, 150, 60, g => {
+      g.fillStyle(0x4a3020, 1); g.fillRect(140, 650, 150, 60);
+      g.fillStyle(0x8a5a3a, 1); g.fillRect(140, 650, 150, 48);
+      g.fillStyle(0xdddddd, 0.8); g.fillCircle(258, 674, 19);
+      g.fillStyle(0xd7263d, 0.85); g.fillCircle(258, 674, 15);
     });
     for (let r = 0; r < 4; r++) for (let i = 0; i < 4 - r; i++)
-      this.add.image(262 + i * 12 + r * 6, 566 - r * 13, r % 2 ? 'can2' : 'can').setDepth(595);
-    [[340, 540], [348, 560], [418, 528]].forEach(([x, y]) => this.add.image(x, y, 'cup').setDepth(595));
+      this.add.image(154 + i * 11 + r * 5.5, 690 - r * 12, r % 2 ? 'can2' : 'can').setDepth(711);
+    [[214, 664], [220, 684], [284, 658]].forEach(([x, y]) => this.add.image(x, y, 'cup').setDepth(711));
     this.sinkCans = [];
-    // living room: pong table
-    this.furn(860, 150, 240, 64, g => {
-      g.fillStyle(0x3a2516, 1); g.fillRect(860, 150, 240, 64);
-      g.fillStyle(0xc9b38a, 1); g.fillRect(860, 150, 240, 52);
-      g.lineStyle(2, UW_RED, 1); g.lineBetween(980, 150, 980, 202);
+    // living room: pong table dead center
+    this.furn(520, 614, 200, 52, g => {
+      g.fillStyle(0x3a2516, 1); g.fillRect(520, 614, 200, 52);
+      g.fillStyle(0xc9b38a, 1); g.fillRect(520, 614, 200, 42);
+      g.lineStyle(2, UW_RED, 1); g.lineBetween(620, 614, 620, 656);
     });
-    const tri = (bx, dir) => { for (let r = 0; r < 4; r++) for (let i = 0; i <= r; i++) this.add.image(bx + dir * r * 9, 176 - r * 5 + i * 10, 'cup').setDepth(215); };
-    tri(874, 1); tri(1086, -1);
-    this.add.circle(980, 171, 3, 0xffffff).setDepth(216);
-    // speaker
-    this.furn(1270, 330, 44, 62, g => {
-      g.fillStyle(0x111111, 1); g.fillRect(1270, 330, 44, 62);
-      g.fillStyle(0x333333, 1); g.fillCircle(1292, 348, 11); g.fillCircle(1292, 376, 8);
+    const tri = (bx, dir) => { for (let r = 0; r < 4; r++) for (let i = 0; i <= r; i++) this.add.image(bx + dir * (3 - r) * 8, 635 - r * 4.5 + i * 9, 'cup').setDepth(667); }; // tip faces the middle
+    tri(532, 1); tri(708, -1);
+    this.add.circle(620, 632, 3, 0xffffff).setDepth(668);
+    // speaker (top-right corner)
+    this.furn(806, 448, 44, 56, g => {
+      g.fillStyle(0x111111, 1); g.fillRect(806, 448, 44, 56);
+      g.fillStyle(0x333333, 1); g.fillCircle(828, 464, 10); g.fillCircle(828, 489, 7);
     });
-    this.speakerPulse = this.add.circle(1292, 348, 14, 0xffffff, 0).setStrokeStyle(2, 0xff3da5, 0.8).setDepth(393);
-    this.tweens.add({ targets: this.speakerPulse, scale: 2.2, alpha: 0, duration: 500, repeat: -1 });
-    // couch along right wall
-    this.furn(1270, 520, 60, 240, g => {
-      g.fillStyle(0x1f2a4a, 1); g.fillRect(1270, 520, 60, 240);
-      g.fillStyle(0x2f3f6a, 1); g.fillRect(1276, 534, 46, 66); g.fillRect(1276, 606, 46, 66); g.fillRect(1276, 678, 46, 66);
+    this.speakerPulse = this.add.circle(828, 464, 14, 0xffffff, 0).setStrokeStyle(3, 0xff3da5, 0.8).setDepth(505);
+    this.tweens.add({ targets: this.speakerPulse, scale: 3, alpha: 0, duration: 500, repeat: -1 });
+    // couch along the right wall
+    this.furn(800, 540, 56, 220, g => {
+      g.fillStyle(0x1f2a4a, 1); g.fillRect(800, 540, 56, 220);
+      g.fillStyle(0x2f3f6a, 1); g.fillRect(806, 552, 44, 62); g.fillRect(806, 620, 44, 62); g.fillRect(806, 688, 44, 62);
     });
     // balcony chairs
-    this.furn(88, 210, 36, 30, g => { g.fillStyle(0x2e5e4e, 1); g.fillRect(88, 210, 36, 30); });
-    this.furn(196, 96, 36, 30, g => { g.fillStyle(0x2e5e4e, 1); g.fillRect(196, 96, 36, 30); });
+    this.furn(72, 480, 30, 26, g => { g.fillStyle(0x2e5e4e, 1); g.fillRect(72, 480, 30, 26); });
+    this.furn(160, 396, 30, 26, g => { g.fillStyle(0x2e5e4e, 1); g.fillRect(160, 396, 30, 26); });
   }
 
   buildNPCs() {
     const npc = (key, x, y, flip = false) => this.add.sprite(x, y, key).setDepth(CHAR_D + y).setFlipX(flip);
-    this.tyler = npc('tyler', 430, 780);
-    this.jake = this.add.sprite(300, 800, 'jake');
-    this.brody = npc('brody', 520, 660, true);
-    this.brodyHome = { x: 520, y: 660 };
-    this.kayla = npc('kayla', 570, 450, true);
-    this.maya = npc('maya', 160, 170);
+    this.tyler = npc('tyler', 300, 800);
+    this.jake = this.add.sprite(180, 800, 'jake');
+    this.brody = npc('brody', 325, 730, true);
+    this.brodyHome = { x: 325, y: 730 };
+    this.kayla = npc('kayla', 120, 590);
+    this.maya = npc('maya', 120, 440);
     this.nameTags = [[this.tyler, 'Tyler'], [this.brody, 'Brody'], [this.kayla, 'Kayla'], [this.maya, 'Maya'], [this.jake, 'Jake']].map(([n, t]) =>
       ({ n, t: this.add.text(n.x, n.y - 30, t, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setResolution(3).setDepth(5800) }));
 
     // background crowd: dark, faceless, can't be talked to
     const keys = ['d1', 'd2', 'd3', 'p1', 'p2', 'couch'];
-    const blocked = [[230, 290, 210, 70], [225, 505, 220, 110], [485, 290, 140, 100], [280, 690, 130, 160], [380, 560, 120, 140], [530, 410, 80, 80], [190, 560, 60, 60],
-      [840, 130, 280, 110], [1250, 500, 100, 280], [1250, 310, 80, 100]];
+    const blocked = [[50, 550, 70, 160], [290, 535, 75, 125], [130, 635, 170, 100], [165, 740, 110, 110], [225, 545, 70, 60],
+      [95, 565, 50, 55], [295, 700, 60, 60], [270, 775, 60, 70],
+      [495, 590, 250, 105], [785, 530, 80, 240], [790, 440, 70, 80], [370, 620, 70, 150]];
     const free = (x, y) => !blocked.some(([bx, by, bw, bh]) => x > bx && x < bx + bw && y > by && y < by + bh);
     const crowd = (n, x0, y0, x1, y1, dance) => {
       const out = [];
       let tries = 0;
       while (out.length < n && tries++ < 500) {
         const x = Phaser.Math.Between(x0, x1), y = Phaser.Math.Between(y0, y1);
-        if (!free(x, y) || out.some(o => Phaser.Math.Distance.Between(o.x, o.y, x, y) < 40)) continue;
+        if (!free(x, y) || out.some(o => Phaser.Math.Distance.Between(o.x, o.y, x, y) < (dance ? 40 : 26))) continue;
         const sp = this.add.sprite(x, y, Phaser.Utils.Array.GetRandom(keys)).setTint(0x23232f).setAlpha(0.95).setDepth(CHAR_D + y).setFlipX(Math.random() < 0.5);
         this.tweens.add({ targets: sp, y: y - (dance ? 6 : 2), duration: Phaser.Math.Between(240, 600), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 400) });
         out.push(sp);
       }
       return out;
     };
-    this.kitchenCrowd = crowd(9, 90, 400, 615, 815, false);
-    this.livingCrowd = crowd(18, 690, 260, 1240, 815, true);
+    this.kitchenCrowd = crowd(14, 75, 560, 350, 825, false);
+    this.livingCrowd = crowd(14, 400, 470, 790, 825, true);
     this.dancers = [...this.kitchenCrowd];
-    this.ponger = crowd(2, 845, 170, 1125, 200, false);
-    this.couchGuy = this.add.sprite(1300, 580, 'couch').setTint(0x23232f).setDepth(CHAR_D + 580);
+    this.ponger = [[502, 640, false], [738, 640, true]].map(([x, y, f]) => this.add.sprite(x, y, Phaser.Utils.Array.GetRandom(keys)).setTint(0x23232f).setDepth(CHAR_D + y).setFlipX(f));
+    this.couchGuy = this.add.sprite(828, 580, 'couch').setTint(0x23232f).setDepth(CHAR_D + 580);
   }
 
   buildInteractables() {
     this.inter = [
-      { x: 290, y: 620, r: 55, label: 'Beer stack', fn: () => this.grabBeer() },
-      { x: 385, y: 620, r: 55, label: 'Punch bowl', fn: () => this.punch() },
-      { x: 256, y: 376, r: 50, label: 'Eat chips', zone: 'living', fn: () => this.eatChips() },
-      { x: 399, y: 376, r: 50, label: 'Get water', zone: 'living', fn: () => this.getWater() },
-      { x: 480, y: 326, r: 50, label: 'Knock', zone: 'living', fn: () => this.knock() },
-      { x: 980, y: 240, r: 80, label: 'Beer pong', zone: 'living', fn: () => this.pongTalk() },
+      { x: 175, y: 735, r: 42, label: 'Beer stack', fn: () => this.grabBeer() },
+      { x: 258, y: 735, r: 42, label: 'Punch bowl', fn: () => this.punch() },
+      { x: 120, y: 672, r: 40, label: 'Eat chips', zone: 'living', fn: () => this.eatChips() },
+      { x: 120, y: 585, r: 40, label: 'Get water', zone: 'living', fn: () => this.getWater() },
+      { x: 260, y: 568, r: 40, label: 'Knock', zone: 'living', fn: () => this.knock() },
+      { x: 620, y: 700, r: 60, label: 'Beer pong', zone: 'living', fn: () => this.pongTalk() },
       { npc: this.maya, r: 55, label: 'Talk', fn: () => this.mayaTalk() },
       { npc: this.kayla, r: 50, label: 'Talk', fn: () => this.kaylaTalk() },
       { npc: this.jake, r: 50, low: true, label: 'Talk to Jake', fn: () => this.jakeTalk() },
@@ -983,7 +1094,7 @@ class Party extends Walk {
   speakerTarget(who) {
     const m = {
       TYLER: this.tyler, JAKE: this.jake, BRODY: this.brody, KAYLA: this.kayla, MAYA: this.maya,
-      VOICE: { x: 480, y: 300 }, CROWD: this.revealed ? this.livingCrowd[0] : this.kitchenCrowd[0]
+      VOICE: { x: 260, y: 520 }, CROWD: this.revealed ? this.livingCrowd[0] : this.kitchenCrowd[0]
     };
     return m[who] || this.player;
   }
@@ -1039,9 +1150,24 @@ class Party extends Walk {
     if (msg) this.ui.toast(msg, 3200);
     if (S.depth >= 10) this.time.delayedCall(900, () => this.blackout());
   }
+  addSinkCans(n) {
+    for (let i = 0; i < n; i++) {
+      const k = this.sinkCans.length;
+      // fill the sink first, then pile up on the counter around it
+      const inSink = k < 10;
+      const x = inSink ? 67 + (k % 3) * 7 + Math.random() * 3 : 64 + Math.random() * 26;
+      const y = inSink ? 618 + Math.floor(k / 3) * 9 + Math.random() * 3 : 600 + Math.random() * 70;
+      const c = this.add.image(x, y, Math.random() < 0.55 ? 'canOpen' : 'canOpen2').setDepth(692 + k * 0.01).setAngle(Phaser.Math.Between(-60, 60)).setScale(0);
+      this.tweens.add({ targets: c, scale: 1, duration: 250, delay: i * 120, ease: 'Back.easeOut' });
+      this.sinkCans.push(c);
+    }
+  }
   advance(m) {
     if (this.ended) return;
+    const hoursBefore = Math.floor(S.minutes / 60);
     S.minutes += m;
+    const hours = Math.floor(S.minutes / 60) - hoursBefore;
+    if (hours > 0) this.addSinkCans(hours * 4);
     // the body slowly processes alcohol over time
     S.depth = Math.max(0, S.depth - 0.25 * (m / 15));
     this.ui.refresh();
@@ -1051,9 +1177,9 @@ class Party extends Walk {
   // ---------- linear story steps ----------
   setStep(name) {
     const steps = {
-      tail: { text: 'Say hi to the kitchen crowd: show off your tail (SPACE)', x: 330, y: 700 },
-      kitchen: { text: 'Dig in: the beer stack or the punch bowl', x: 335, y: 545 },
-      bathroom: { text: 'Someone\'s been in the bathroom forever. Check on them.', x: 480, y: 330 },
+      tail: { text: 'Say hi to the kitchen crowd: show off your tail (SPACE)', x: 120, y: 760 },
+      kitchen: { text: 'Dig in: the beer stack or the punch bowl', x: 215, y: 668 },
+      bathroom: { text: 'Someone\'s been in the bathroom forever. Check on them.', x: 260, y: 572 },
       balcony: { text: 'Get some air on the balcony', npc: this.maya },
       jake: { text: 'Where did Jake go? Find him.', npc: this.jake }
     };
@@ -1061,6 +1187,8 @@ class Party extends Walk {
     this.markCurrent(name);
     this.markerTarget = steps[name] || null;
     this.ui.objective(steps[name] ? steps[name].text : '');
+    const st = STEPS.find(x => x.id === name);
+    if (st && name !== 'tail' && !this.ui.phoneOpen) { this.ui.phoneBadge.setVisible(true); this.ui.toast(`💬 ${st.from}: ${st.msg}`, 3000); }
   }
   markCurrent(id) {
     if (S.current && S.current !== id && !S.done.includes(S.current)) S.done.push(S.current);
@@ -1082,7 +1210,7 @@ class Party extends Walk {
     this.time.delayedCall(700, () => this.pending.push(next));
   }
   spawnMess(n) {
-    const areas = [[80, 380, 540, 440], [680, 80, 560, 740], [680, 260, 560, 160]];
+    const areas = [[75, 560, 280, 270], [400, 460, 440, 360], [400, 700, 380, 120]];
     for (let i = 0; i < n; i++) {
       const [x, y, w, h] = Phaser.Utils.Array.GetRandom(areas);
       const k = Phaser.Utils.Array.GetRandom(['can', 'can2', 'cup', 'can']);
@@ -1090,7 +1218,6 @@ class Party extends Walk {
       this.mess.add(s);
       if (Math.random() < 0.25) this.add.ellipse(s.x + 6, s.y + 4, 22, 10, 0xc9a227, 0.35).setDepth(-501);
     }
-    for (let i = 0; i < n / 3; i++) this.add.image(310 + Math.random() * 50, 312 + Math.random() * 14, Math.random() < 0.5 ? 'can' : 'can2').setDepth(350).setAngle(Phaser.Math.Between(-40, 40));
   }
   ambient() {
     if (this.ended) return;
@@ -1203,7 +1330,7 @@ class Party extends Walk {
   }
   jakeWandersOff() {
     this.jakeLeft = true;
-    this.jake.setPosition(1010, 600).setFlipX(true).setDepth(CHAR_D + 600);
+    this.jake.setPosition(700, 770).setFlipX(true).setDepth(CHAR_D + 770);
     this.ui.toast('Wait... where did Jake go?');
     this.setStep('jake');
   }
@@ -1216,7 +1343,7 @@ class Party extends Walk {
           { label: '🥃 Take the shot', fn: () => { this.drink(3, 'Shots hit way faster than beer.'); this.ui.learn('shots'); fin(); } },
           { label: '💧 Raise your water and cheers', sober: true, fn: () => { S.refused++; this.say('TYLER', 'WATER GANG! Okay okay!'); fin(); } },
           { label: '🦶 Dig in your heels: "I\'m good."', sober: true, fn: () => { S.refused++; this.say('TYLER', 'All good, more for us!'); fin(); } },
-          { label: '🌙 Slip out to the balcony', fn: () => { S.refused++; this.player.setPosition(160, 230); this.ui.toast('You step away from the crowd. Fresh air.'); fin(); } }
+          { label: '🌙 Slip out to the balcony', fn: () => { S.refused++; this.player.setPosition(130, 470); this.ui.toast('You step away from the crowd. Fresh air.'); fin(); } }
         ],
         onTimeout: () => this.ui.lines([{ who: '', text: 'Everyone\'s watching. Someone clinks your glass. You take it.' }], () => { this.drink(3, 'Shots hit way faster than beer.'); fin(); })
       });
@@ -1341,10 +1468,10 @@ class Party extends Walk {
     this.jakeDown = true;
     this.player.setVelocity(0, 0);
     this.jakeLeft = false;
-    this.jake.setPosition(1300, 650).setAngle(90).setDepth(CHAR_D + 800).setTint(0xc8d6e0);
-    this.player.setPosition(1215, 650).setFlipX(false);
+    this.jake.setPosition(828, 650).setAngle(90).setDepth(CHAR_D + 800).setTint(0xc8d6e0);
+    this.player.setPosition(760, 650).setFlipX(false);
     this.couchGuy.setVisible(false);
-    this.brody.setPosition(1180, 590);
+    this.brody.setPosition(735, 590);
     this.tweens.timeScale = 0.6;
     this.ui.banner('1:30 AM');
     const decide = () => this.ui.choose({

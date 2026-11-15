@@ -2,7 +2,7 @@
 
 Open `index.html` in Chrome (double-click works, no server or install needed).
 
-Controls: WASD/Arrows move · E interact/next · SPACE tail shake · P phone (objectives + what you learned) · 1–4 pick a choice
+Controls: WASD move · E interact/next · SPACE tail shake · ↑ phone (Esc close, ← → tabs) · ↑↓ + Enter (or 1–4) pick a choice
 
 Flow: Title → Langdon St (knock) → house party 9:00 PM → 10:30 pong → 12:00 shots → 1:30 blackout
 → wake up on the Memorial Union Terrace, tail gone → dig back through the night
