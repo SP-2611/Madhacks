@@ -580,12 +580,10 @@ class Title extends Phaser.Scene {
     g.fillStyle(0x3d2714, 1); g.fillEllipse(W / 2, H + 40, W * 1.4, 260);
     g.fillStyle(0x5c3d22, 1); g.fillEllipse(W / 2, H + 60, W * 1.2, 220);
     drawPixelCapitol(this.add.graphics(), W / 2, 484, 2);
-    this.add.text(W / 2, 214, 'Madison, Wisconsin', { fontFamily: FONT, fontSize: '14px', color: '#9aa4c8' }).setOrigin(0.5).setResolution(2);
 
-    this.add.text(W / 2, 62, 'TALE OF THE', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setResolution(2);
+    this.add.text(W / 2, 62, 'THE TALE OF THE', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setResolution(2);
     const t = this.add.text(W / 2, 122, 'BADGER', { fontFamily: FONT, fontSize: '84px', color: '#ffffff', fontStyle: 'bold', stroke: '#c5050c', strokeThickness: 12 }).setOrigin(0.5).setResolution(2);
     t.setShadow(6, 6, '#000000', 0, true, true);
-    this.add.text(W / 2, 186, 'Chapter 1 · Dig In', { fontFamily: FONT, fontSize: '22px', color: '#ffd166' }).setOrigin(0.5).setResolution(2);
 
     const tail = this.add.image(196, 506, 'tail').setScale(3).setOrigin(0.9, 0.5).setFlipX(true);
     const b = this.add.sprite(230, 478, 'badger', 0).setScale(3);

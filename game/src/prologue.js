@@ -63,29 +63,6 @@ function makeMinerTex(scene, key, legs, pick) {
   g.destroy();
 }
 
-// 5x7 pixel font, only the letters the prologue needs
-const GLYPHS = {
-  A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
-  B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
-  D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
-  E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
-  G: ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'],
-  H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
-  R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
-  S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
-  T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..']
-};
-function pixelText(g, str, cx, y, s, color, shadow) {
-  const width = str.length * 6 - 1;
-  const x0 = Math.round(cx - width * s / 2);
-  [[shadow, Math.max(2, s / 2)], [color, 0]].forEach(([c, off]) => {
-    g.fillStyle(c, 1);
-    [...str].forEach((ch, i) => (GLYPHS[ch] || []).forEach((row, ry) => [...row].forEach((b, rx) => {
-      if (b === '#') g.fillRect(x0 + (i * 6 + rx) * s + off, y + ry * s + off, s, s);
-    })));
-  });
-}
-
 // Wisconsin State Capitol in chunky pixels; cx = center, gy = ground line, s = pixel size
 function drawPixelCapitol(g, cx, gy, s) {
   const R = (x, y, w, h, c) => { g.fillStyle(c, 1); g.fillRect(Math.round(cx + x * s), Math.round(gy + y * s), w * s, h * s); };
@@ -146,17 +123,15 @@ class Prologue extends Phaser.Scene {
 
     this.panels = [
       { tag: 'Long, long ago', draw: () => this.panelLongAgo(),
-        text: 'Every badger has a tale. This one starts long ago, before there was a campus, a Capitol, or a single game day.' },
+        text: 'Every badger has a tale. This one starts long ago. Before there was a campus or a Capitol.' },
       { tag: 'Southwest Wisconsin · 1820s', draw: () => this.panelRush(),
         text: 'Lead was found in the hills of southwest Wisconsin, and thousands of miners rushed in to dig for it.' },
       { tag: 'Winter is coming', draw: () => this.panelHillside(false),
         text: 'With no time to build cabins before winter, many miners dug their shelters straight into the hillsides.' },
       { tag: 'Living like badgers', draw: () => this.panelHillside(true),
         text: 'People joked that they lived like badgers in burrows. The miners got called "Badgers," and the name stuck.' },
-      { tag: 'Wisconsin Territory · 1830s', draw: () => this.panelState(),
-        text: 'The nickname spread, and Wisconsin became the Badger State. A badger still sits on the state flag today.' },
       { tag: 'Madison · today', draw: () => this.panelToday(),
-        text: 'Badgers have always been diggers. This is the tale of one more. Time to dig in.' }
+        text: 'Badgers have always been diggers. This is the tale of one.' }
     ];
     this.i = -1;
     this.next();
@@ -225,7 +200,7 @@ class Prologue extends Phaser.Scene {
     this.hills(330, 40, 0x4a6b3a, 0.008, 0);
     this.hills(410, 24, 0x34502a, 0.015, 2);
     [0, 1, 2].forEach(k => {
-      const m = this.keep(this.add.sprite(-60 - k * 110, 420 + (k % 2) * 14, 'minerA').setScale(3));
+      const m = this.keep(this.add.sprite(-80 - k * 160, 418 + (k % 2) * 14, 'minerA').setScale(5));
       m.play({ key: 'miner_walk', startFrame: k % 2 });
       this.tweens.add({ targets: m, x: W + 80, duration: 10000, delay: k * 300 });
     });
@@ -237,21 +212,14 @@ class Prologue extends Phaser.Scene {
     this.hole(250, 400, true); this.hole(520, 372, true);
     if (!badger) {
       this.hole(790, 410, false);
-      this.keep(this.add.sprite(718, 418, 'minerUp').setScale(3)).play('miner_dig');
+      this.keep(this.add.sprite(700, 364, 'minerUp').setScale(5)).play('miner_dig');
     } else {
-      this.keep(this.add.image(250, 430, 'minerA').setScale(3));
+      this.keep(this.add.image(360, 420, 'minerA').setScale(5));
       this.burrow(800, 478);
       const b = this.keep(this.add.sprite(600, 410, 'badger', 0).setScale(2.5).setDepth(1));
       b.play('walk');
       this.tweens.add({ targets: b, x: 700, duration: 1600, onComplete: () => { b.stop(); b.setFrame(0); } });
     }
-  }
-  panelState() {
-    this.sky(0x2b5fa8, 0x8fbbe6);
-    this.hills(420, 30, 0x4f8a3c, 0.01, 0.5);
-    pixelText(this.g, 'THE BADGER STATE', W / 2, 100, 7, 0xffd166, 0x1b2a4f);
-    const b = this.keep(this.add.sprite(W / 2, 360, 'badger', 0).setScale(4));
-    this.tweens.add({ targets: b, y: 348, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
   panelToday() {
     this.sky(0x0b1026, 0x3a0d1a); this.stars(50);
