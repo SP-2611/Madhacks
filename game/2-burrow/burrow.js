@@ -2,7 +2,7 @@ const W=960,H=600;
 // Render scale: draw at real screen resolution so text is sharp (layout stays W x H)
 const RS=Math.max(1,Math.min(3,Math.round(Math.min(window.innerWidth/W,window.innerHeight/H)*(window.devicePixelRatio||1))));
 // Chapters you've cleared: each chapter sends you back here with ?done=<id>
-const DONE=(()=>{let d=[];try{d=JSON.parse(localStorage.getItem('tob_done')||'[]')}catch(e){}const q=new URLSearchParams(location.search).get('done');if(q&&!d.includes(q)){d.push(q);try{localStorage.setItem('tob_done',JSON.stringify(d))}catch(e){}}return d})();
+const DONE=(()=>{const key='tob_done_v2',valid=new Set(['phishing','coursework','narcan','party']);let d=[];try{const saved=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(saved))d=saved.filter(id=>valid.has(id))}catch(e){}const q=new URLSearchParams(location.search).get('done');if(valid.has(q)&&!d.includes(q)){d.push(q);try{localStorage.setItem(key,JSON.stringify(d))}catch(e){}}return d})();
 const LEVELS=[
  {id:'phishing',x:270,y:238,title:"CH 2 · BUCKY'S INBOX",sign:'PHISHING',color:0xc58b7e,description:'Morgridge Hall: help Bucky spot a phishing email.',href:'../3-phishing/index.html'},
  {id:'coursework',x:690,y:238,title:'CH 3 · BUCKY VS COURSEWORK',sign:'COURSEWORK',color:0xd9b16e,description:'Bascom Hill: find a class and build your schedule.',href:'../4-coursework/index.html'},
