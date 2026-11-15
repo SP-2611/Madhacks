@@ -9,7 +9,7 @@ const LEVELS=[
  {id:'narcan',x:270,y:397,title:'CH 4 · BUCKY VS DRUGS',sign:'NARCAN',color:0xa7b28a,description:'State Street: learn how naloxone can save a life.',href:'../5-narcan/index.html'},
  {id:'party',x:690,y:397,title:'CH 1 · THE PARTY',sign:'START OVER',color:0xa2a9c7,description:'Back to the title: the prologue and the house party.',href:'../index.html'}
 ];
-const CLEARED=['phishing','coursework','narcan'].filter(id=>DONE.includes(id)).length;
+const CLEARED=LEVELS.filter(level=>DONE.includes(level.id)).length;
 
 class Burrow extends Phaser.Scene{
  preload(){this.load.spritesheet('badger',BADGER_DATA,{frameWidth:50,frameHeight:48})}
@@ -18,7 +18,7 @@ class Burrow extends Phaser.Scene{
   this.drawBurrow();
   const title=this.add.text(W/2,53,'THE BURROW',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'84px',fontStyle:'bold',color:'#ffffff',stroke:'#c5050c',strokeThickness:12}).setOrigin(.5).setResolution(2);
   title.setShadow(6,6,'#000000',0,true,true);
-  this.add.text(W/2,126,CLEARED===3?'ALL CHAPTERS CLEARED!':'CHAPTER SELECT  ·  '+CLEARED+'/3 CLEARED',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'22px',color:'#ffffff'}).setOrigin(.5).setResolution(2);
+  this.add.text(W/2,126,CLEARED===LEVELS.length?'ALL CHAPTERS CLEARED!':'CHAPTER SELECT  ·  '+CLEARED+'/'+LEVELS.length+' CLEARED',{fontFamily:'Verdana, "Segoe UI", Tahoma, sans-serif',fontSize:'22px',color:'#ffffff'}).setOrigin(.5).setResolution(2);
   this.tunnels=LEVELS.map((item,index)=>this.makeTunnel(item,index));
   this.badger=this.add.sprite(480,459,'badger',0).setScale(1.5).setDepth(6);
   this.anims.create({key:'badger-idle',frames:this.anims.generateFrameNumbers('badger',{start:0,end:3}),frameRate:5,repeat:-1});
@@ -27,7 +27,7 @@ class Burrow extends Phaser.Scene{
   this.anims.create({key:'badger-dig',frames:this.anims.generateFrameNumbers('badger-dig',{start:0,end:2}),frameRate:7,repeat:-1});
   this.badger.play('badger-idle');
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,ENTER,SPACE');
-  this.moveHeld=new Set();this.selected=0;this.isEntering=false;this.makeFooter();
+  this.moveHeld=new Set();this.selected=Math.max(0,LEVELS.findIndex(level=>!DONE.includes(level.id)));this.isEntering=false;this.makeFooter();
   this.input.keyboard.on('keydown',e=>{const d={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down'}[e.key];if(d){this.moveHeld.add(d);e.preventDefault()}});
   this.input.keyboard.on('keyup',e=>{const d={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down'}[e.key];if(d)this.moveHeld.delete(d)});
   this.refreshSelection();
@@ -67,11 +67,13 @@ class Burrow extends Phaser.Scene{
   g.fillStyle(0xa17a4b).fillRect(-62,-49,13,3).fillRect(-31,-57,15,3).fillRect(4,-58,13,3).fillRect(43,-47,13,3);
   c.add(g);
   const board=this.add.graphics();board.fillStyle(0x372518).fillRect(-67,48,134,23);board.fillStyle(0x765435).fillRect(-66,48,132,3);board.fillStyle(0x24170f).fillRect(-65,68,130,3);c.add(board);
-  const done=DONE.includes(level.id)&&level.id!=='party';
-  c.add(this.add.text(0,53,(done?'✓ ':'')+level.sign,{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:done?'#9be37a':'#ead7b4'}).setOrigin(.5));
+  const done=DONE.includes(level.id);
+  c.add(this.add.text(0,53,done?'CLEARED':level.sign,{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:done?'#d98b78':'#ead7b4'}).setOrigin(.5));
   c.add(this.add.text(0,84,level.title,{fontFamily:'monospace',fontSize:'12px',fontStyle:'bold',color:'#f0dfc0',stroke:'#25180f',strokeThickness:4}).setOrigin(.5));
+  if(done){const cross=this.add.graphics();cross.lineStyle(7,0xb33b3b,.95).lineBetween(-53,-48,53,88).lineBetween(-53,88,53,-48);c.add(cross);c.setAlpha(.78);c.done=true}
   const rim=this.add.graphics();rim.lineStyle(2,0xd0ad79,0.55).strokePoints([{x:-76,y:42},{x:-78,y:9},{x:-66,y:-32},{x:-43,y:-55},{x:-15,y:-70},{x:22,y:-68},{x:55,y:-49},{x:73,y:-18},{x:79,y:18},{x:76,y:43}],true);c.add(rim);c.rim=rim;
   c.setSize(168,132).setInteractive(new Phaser.Geom.Rectangle(-84,-67,168,134),Phaser.Geom.Rectangle.Contains);
+  if(c.done)c.disableInteractive();
   c.on('pointerover',()=>{this.selected=index;this.refreshSelection()});
   c.on('pointerdown',()=>{this.selected=index;this.refreshSelection()});
   return c;
@@ -96,19 +98,23 @@ class Burrow extends Phaser.Scene{
   const panel=this.add.graphics().setDepth(8);panel.fillStyle(0x1c140f,0.98).fillRect(0,514,W,86);panel.fillStyle(0x77502e).fillRect(0,514,W,4);panel.fillStyle(0x342318).fillRect(0,522,W,2);
   this.footerTitle=this.add.text(25,532,'Choose a tunnel',{fontFamily:'monospace',fontSize:'14px',fontStyle:'bold',color:'#ead7b4'}).setDepth(9);
   this.footerHint=this.add.text(25,555,'WASD / arrows: move     E: enter nearby tunnel     Click a tunnel to select',{fontFamily:'monospace',fontSize:'11px',color:'#c6b193'}).setDepth(9);
-  this.add.text(817,548,'ENTER TUNNEL  ›',{fontFamily:'monospace',fontSize:'12px',fontStyle:'bold',color:'#ead7b4',backgroundColor:'#49311f',padding:{x:12,y:10}}).setOrigin(.5).setDepth(10);
-  this.add.rectangle(817,548,184,50,0xffffff,.001).setDepth(11).setInteractive({useHandCursor:true}).on('pointerdown',()=>this.enterSelected());
+  this.startText=this.add.text(817,548,'ENTER TUNNEL  ›',{fontFamily:'monospace',fontSize:'12px',fontStyle:'bold',color:'#ead7b4',backgroundColor:'#49311f',padding:{x:12,y:10}}).setOrigin(.5).setDepth(10);
+  this.enterButton=this.add.rectangle(817,548,184,50,0xffffff,.001).setDepth(11).setInteractive({useHandCursor:true}).on('pointerdown',()=>this.enterSelected());
  }
 
  refreshSelection(){
+  const remaining=LEVELS.filter(level=>!DONE.includes(level.id));
+  if(!remaining.length){this.footerTitle.setText('ALL CHAPTERS CLEARED');this.footerHint.setText('Every tunnel is crossed out. Bucky has finished them all.');this.startText.setText('ALL CLEAR');this.enterButton.disableInteractive();return}
+  if(!LEVELS[this.selected]||DONE.includes(LEVELS[this.selected].id))this.selected=LEVELS.findIndex(level=>!DONE.includes(level.id));
   const level=LEVELS[this.selected];
   if(this.footerTitle){this.footerTitle.setText(level.title);this.footerHint.setText(level.description+'   ·   E or ENTER to play')}
   this.tunnels?.forEach((t,i)=>t.rim.setAlpha(i===this.selected ? .9 : .22));
  }
 
  enterSelected(){
-  if(this.isEntering)return;this.isEntering=true;
-  const level=LEVELS[this.selected];this.badger.play('badger-dig',true).setDepth(12);
+  if(this.isEntering)return;
+  const level=LEVELS[this.selected];if(!level||DONE.includes(level.id))return;
+  this.isEntering=true;this.badger.play('badger-dig',true).setDepth(12);
   for(let i=0;i<10;i++){
    const dirt=this.add.rectangle(this.badger.x+Phaser.Math.Between(-22,22),this.badger.y+14,Phaser.Math.Between(4,8),Phaser.Math.Between(4,8),i%2?0x805c38:0xb18a55).setDepth(13);
    this.tweens.add({targets:dirt,x:dirt.x+Phaser.Math.Between(-35,35),y:dirt.y-Phaser.Math.Between(12,36),alpha:0,duration:480,delay:i*22,onComplete:()=>dirt.destroy()});
@@ -126,7 +132,7 @@ class Burrow extends Phaser.Scene{
   if(this.keys.DOWN.isDown||this.keys.S.isDown||this.moveHeld.has('down'))dy++;
   if(dx||dy){this.badger.play('badger-walk',true);this.badger.x=Phaser.Math.Clamp(this.badger.x+dx*3.2,160,800);this.badger.y=Phaser.Math.Clamp(this.badger.y+dy*3.2,196,493);this.badger.setFlipX(dx<0)}else this.badger.play('badger-idle',true);
   let near=-1,best=Infinity;
-  LEVELS.forEach((level,i)=>{const d=Phaser.Math.Distance.Between(this.badger.x,this.badger.y,level.x,level.y+59);if(d<best){best=d;near=i}});
+  LEVELS.forEach((level,i)=>{if(DONE.includes(level.id))return;const d=Phaser.Math.Distance.Between(this.badger.x,this.badger.y,level.x,level.y+59);if(d<best){best=d;near=i}});
   if(near>=0&&best<130&&this.selected!==near){this.selected=near;this.refreshSelection()}
   if(Phaser.Input.Keyboard.JustDown(this.keys.E)||Phaser.Input.Keyboard.JustDown(this.keys.ENTER)||Phaser.Input.Keyboard.JustDown(this.keys.SPACE))this.enterSelected();
   this.tunnels.forEach((t,i)=>t.rim.setAlpha(i===this.selected ? .68+.22*Math.sin(this.time.now/180) : .2));
