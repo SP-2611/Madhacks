@@ -58,3 +58,24 @@
 @keyframes panic-shake{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-3px) rotate(-2deg)}75%{transform:translateX(3px) rotate(2deg)}}@keyframes send-pulse{50%{filter:brightness(1.45);transform:translateY(-2px)}}@keyframes fade-in{from{opacity:0}to{opacity:1}}
 @media(max-width:650px){.intro-screen{padding:10px}.intro-frame{padding:0 12px 15px}.intro-topbar{margin:0 -12px 10px;padding:0 9px;font-size:10px}.intro-scene{grid-template-columns:1fr;gap:9px;padding:4px 0 12px}.intro-caption{font-size:10px}.intro-bucky{min-height:142px}.intro-bucky-sprite{width:112px;height:108px;background-size:448px 108px}.panic-bubble{left:57%;font-size:10px}.panic-sweat{right:28%;top:44px}.intro-computer{padding:0 8px 8px;transform:none}.computer-title{margin:0 -8px 5px;font-size:9px}.compose-row,.compose-subject{font-size:10px}.compose-body{min-height:42px;font-size:11px}.send-row span{font-size:9px}.send-row button{font-size:9px;padding:7px}.intro-frame h1{font-size:20px}.intro-copy{font-size:12px}}
 .result-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}.result-actions .pixel-button{font-size:10px}
+
+/* Increase the email and interface text for easier reading. */
+.intro-screen{overflow-y:auto}
+.intro-topbar{font-size:14px}
+.intro-caption{font-size:15px}
+.computer-title{font-size:12px}
+.compose-row,.compose-subject{font-size:14px;line-height:1.35}
+.compose-body{font-size:17px;line-height:1.6;min-height:78px}
+.send-row span{font-size:12px}
+.send-row button{font-size:12px}
+.intro-copy{font-size:16px}
+.intro-continue{font-size:15px}
+.email-body{font-size:18px}
+.subject h1{font-size:22px}
+.sender-copy strong{font-size:16px}
+.sender-copy small,.sender-copy #senderAddress,.sender-copy .clue{font-size:13px}
+.mail-toolbar{font-size:12px}
+.scene-label{font-size:13px}
+.speech{font-size:15px}
+.bottom-bar{font-size:13px}
+@media(max-width:760px){.intro-topbar{font-size:12px}.intro-caption{font-size:13px}.computer-title{font-size:11px}.compose-row,.compose-subject{font-size:12px}.compose-body{font-size:14px;min-height:65px}.send-row span,.send-row button{font-size:11px}.intro-copy{font-size:14px}.intro-continue{font-size:13px}.email-body{font-size:15px}.subject h1{font-size:17px}.sender-copy strong{font-size:14px}.sender-copy small,.sender-copy #senderAddress,.sender-copy .clue{font-size:11px}.scene-label{font-size:11px}.speech{font-size:12px}.bottom-bar{font-size:10px}}
