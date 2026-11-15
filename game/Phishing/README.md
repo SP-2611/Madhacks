@@ -1,7 +1,7 @@
 # Badger Mail Quest: The Missing Tail
 
-A one-scene, indie pixel-style phishing game built with plain HTML, CSS, and JavaScript. Open `index.html` in a browser to play; no install or server is needed. The Bucky sprite is reused from the Madhacks game assets.
+A one-scene, indie pixel-style phishing game built with plain HTML, CSS, and JavaScript. Open `index.html` in a browser to play; no install or server is needed. The scene uses a supplied-photo-based, 8-bit pixel-art rendering of Morgridge Hall behind the pixel-art characters and mail interface. The Bucky sprite is reused from the Madhacks game assets.
 
 ## How to play
 
-Bucky receives a reply to his message about losing his tail. Click the suspicious parts of Daisy Badger’s email, then select **Report phishing**. Find all five clues to stop the scam. If any are missed, a corrupted-computer animation plays and the game explains what was overlooked.
+Bucky’s Morgridge Hall desktop has UW Mobile Order, UW Free Food, UW Events, and UW News shortcuts. The Badger Mail icon flashes to show there is a new message; click it to open Daisy’s email. Select all five suspicious details, then click **Report phishing**. Missing a clue triggers the corrupted-computer animation and a short explanation.

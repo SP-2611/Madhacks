@@ -1,12 +1,38 @@
 const clues = [
-  ['sender', 'The sender uses tail-recovery.help, an unofficial domain. Daisy’s display name does not prove who sent the message.'],
-  ['deadline', '“Before midnight” pressures Bucky to act quickly instead of checking the story with someone he trusts.'],
-  ['link', 'uw-tail-recovery.com imitates a university service but is not an official uw.edu address.'],
-  ['credentials', 'A real support team should never ask for a NetID password or a photo of a student ID by email.'],
-  ['giftcards', 'Gift card codes are a common scam payment request. A “refundable deposit” does not make it safe.']
+  ['sender', 'The sender domain is not an official UW address.'],
+  ['deadline', 'Urgency pressures Bucky to act without checking.'],
+  ['link', 'The recovery site is not an official uw.edu domain.'],
+  ['credentials', 'Never send a password or student ID by email.'],
+  ['giftcards', 'Gift card codes are a common scam payment method.']
 ];
 let locked = false;
 const $ = id => document.getElementById(id);
+const emailWindow = $('emailWindow');
+const initialHint = '<b>HOW TO PLAY</b><br>1. Click the Badger Mail icon.<br>2. Find suspicious details in Daisy’s email.<br>3. Click <strong>REPORT PHISHING</strong>.';
+const openHint = '<b>FIND THE PHISH</b><br>Click all 5 suspicious parts.<br>Then click <strong>REPORT PHISHING</strong>.';
+
+function openMail() {
+  if (locked) return;
+  emailWindow.classList.remove('mail-closed');
+  emailWindow.setAttribute('aria-hidden', 'false');
+  $('mailIcon').classList.add('mail-icon-hidden');
+  $('buckyHint').innerHTML = openHint;
+  $('sceneLabel').innerHTML = '<span class="blip"></span> DAISY BADGER — NEW MESSAGE';
+}
+
+function closeMail() {
+  emailWindow.classList.add('mail-closed');
+  emailWindow.setAttribute('aria-hidden', 'true');
+  $('mailIcon').classList.remove('mail-icon-hidden');
+  $('buckyHint').innerHTML = initialHint;
+  $('sceneLabel').innerHTML = '<span class="blip"></span> NEW MAIL! CLICK THE FLASHING BADGER MAIL ICON';
+}
+
+$('mailIcon').addEventListener('click', openMail);
+$('closeMailBtn').addEventListener('click', closeMail);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !emailWindow.classList.contains('mail-closed')) closeMail();
+});
 
 $('senderAddress').innerHTML = '&lt;<span class="clue" data-clue="sender">daisy@tail-recovery.help</span>&gt;';
 $('emailBody').innerHTML = [
@@ -46,7 +72,7 @@ function submitFindings() {
   $('resultTitle').textContent = allFound ? 'You saved Bucky’s tail!' : 'The scam got through!';
   $('resultText').textContent = allFound
     ? 'You caught every red flag before Bucky could reply. His tail and his account are safe.'
-    : `You spotted ${count} of ${clues.length} suspicious details. The scam slipped into Bucky’s inbox.`;
+    : `You found ${count} of ${clues.length} clues. Daisy’s email was a scam.`;
   $('lessonBox').innerHTML = allFound
     ? '<div><b>Quest clear!</b> Check the sender, slow down around urgent deadlines, and never share passwords or pay with gift cards.</div>'
     : missed.map(([, explanation]) => `<div><b>Missed clue:</b> ${explanation}</div>`).join('');
