@@ -4,6 +4,37 @@ A browser game that walks new UW–Madison students through the orientation stuf
 
 **Play:** open `index.html` (repo root) or `game/index.html` in Chrome. No install or server needed.
 
+## Run commands (Mac, terminal in the repo folder)
+
+| What | Command |
+|---|---|
+| Full game | `open -a "Google Chrome" game/index.html` |
+| Scene tester (pick any scene) | `open -a "Google Chrome" game/1-party/scenes/test.html` |
+| The Burrow | `open -a "Google Chrome" game/2-burrow/index.html` |
+| Ch 2 · Phishing | `open -a "Google Chrome" game/3-phishing/index.html` |
+| Ch 3 · Coursework | `open -a "Google Chrome" game/4-coursework/index.html` |
+| Ch 4 · Narcan | `open -a "Google Chrome" game/5-narcan/index.html` |
+
+Jump straight into one Ch 1 scene (swap the scene name):
+
+```
+open -a "Google Chrome" "file://$PWD/game/index.html?scene=Party"
+```
+
+| Scene | `?scene=` value |
+|---|---|
+| Title | `Title` |
+| Prologue | `Prologue` |
+| Langdon St | `Street` |
+| House party | `Party` |
+| House party, dig-back replay | `Party&rewind=1` |
+| State Street (sober ending) | `StateStreet` |
+| Blackout | `Blackout&drinks=4` |
+| Mem U Terrace wake-up | `Terrace&drinks=4` |
+| Tail restored ending | `Ending&rewind=1` |
+
+Already have a tab open? **Cmd+Shift+R** reloads it with your latest changes.
+
 ## Game flow
 
 ```
