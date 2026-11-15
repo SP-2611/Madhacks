@@ -76,6 +76,7 @@ class Base extends Phaser.Scene {
     this.cap = this.add.text(50, H - 98, '', { fontFamily: FONT, fontSize: '20px', color: '#ffffff', wordWrap: { width: W - 100 }, lineSpacing: 4 }).setDepth(101).setResolution(2);
     this.timerText = this.add.text(W - 24, 18, '', { fontFamily: FONT, fontSize: '22px', color: '#ff6b6b', fontStyle: 'bold', stroke: '#000', strokeThickness: 5 }).setOrigin(1, 0).setDepth(101).setResolution(2);
     if (title) this.add.text(24, 18, title, { fontFamily: FONT, fontSize: '22px', color: '#ffd166', fontStyle: 'bold', stroke: '#000', strokeThickness: 5 }).setDepth(101).setResolution(2);
+    this.add.text(W - 24, H - 124, 'E: INTERACT   ·   M: MAP', { fontFamily: FONT, fontSize: '14px', color: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4, backgroundColor: '#000000aa', padding: { x: 8, y: 5 } }).setOrigin(1, 0).setDepth(102).setResolution(2);
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,J,K,M,ENTER');
     // one-shot keys use events so quick taps never get missed
     this.pressed = new Set();
@@ -402,9 +403,13 @@ class End extends Phaser.Scene {
       'Free Narcan is available at UHS, 333 East Campus Mall. Carry it.'
     ];
     lessons.forEach((t, i) => this.add.text(120, 230 + i * 62, '• ' + t, { fontFamily: FONT, fontSize: '19px', color: '#ffffff', wordWrap: { width: W - 240 } }).setResolution(2));
-    const again = this.add.text(W / 2, 560, 'Press ENTER to play again', { fontFamily: FONT, fontSize: '20px', color: '#ffd166' }).setOrigin(0.5).setResolution(2);
-    this.tweens.add({ targets: again, alpha: 0.2, duration: 700, yoyo: true, repeat: -1 });
-    this.input.keyboard.once('keydown-ENTER', () => this.scene.start('Street'));
+    const back = this.add.text(W / 2, 552, 'RETURN TO BURROW  ·  ENTER / CLICK', { fontFamily: FONT, fontSize: '20px', color: '#ffd166', fontStyle: 'bold', backgroundColor: '#241a25', padding: { x: 12, y: 8 } }).setOrigin(0.5).setResolution(2).setInteractive({ useHandCursor: true });
+    this.tweens.add({ targets: back, alpha: 0.65, duration: 700, yoyo: true, repeat: -1 });
+    const returnToBurrow = () => { window.location.href = '../Burrow/index.html'; };
+    back.once('pointerdown', returnToBurrow);
+    this.input.keyboard.once('keydown-ENTER', returnToBurrow);
+    this.add.text(W / 2, 600, 'R: PLAY AGAIN', { fontFamily: FONT, fontSize: '13px', color: '#cccccc' }).setOrigin(0.5).setResolution(2);
+    this.input.keyboard.once('keydown-R', () => this.scene.start('Street'));
   }
 }
 

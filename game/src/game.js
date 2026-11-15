@@ -1653,8 +1653,10 @@ class Ending extends Phaser.Scene {
     ];
     this.add.text(W / 2 - 380, 100, L.join('\n'), { fontFamily: FONT, fontSize: '17px', color: '#ffffff', lineSpacing: 10 }).setDepth(2001).setResolution(2);
     this.add.text(W / 2, 330, 'Bucky lost his tail. Don\'t lose yourself.', { fontFamily: FONT, fontSize: '20px', color: '#ff5a5f', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2001).setResolution(2);
-    this.add.text(W / 2, 372, 'Chapter 2: Bascom Hill — coming soon   ·   ENTER: title', { fontFamily: FONT, fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setDepth(2001).setResolution(2);
-    this.input.keyboard.once('keydown-ENTER', () => { this.scene.stop('UI'); this.scene.start('Title'); });
+    const burrowButton = this.add.text(W / 2, 372, 'RETURN TO BURROW  ·  ENTER / CLICK', { fontFamily: FONT, fontSize: '17px', color: '#ffffff', fontStyle: 'bold', backgroundColor: '#c5050c', padding: { x: 12, y: 8 } }).setOrigin(0.5).setDepth(2001).setResolution(2).setInteractive({ useHandCursor: true });
+    const returnToBurrow = () => { window.location.href = 'Burrow/index.html'; };
+    burrowButton.once('pointerdown', returnToBurrow);
+    this.input.keyboard.once('keydown-ENTER', returnToBurrow);
   }
 }
 
